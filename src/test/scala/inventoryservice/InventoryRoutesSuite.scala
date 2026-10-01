@@ -523,6 +523,31 @@ class InventoryRoutesSuite extends CatsEffectSuite {
   }
 
   test(
+    "POST /inventorys/reservations returns 400 with a JSON error body for a zero or negative quantity"
+  ) {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-1", 100)
+        )
+      )
+      reserveResponse <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys/reservations")
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 0))
+      )
+      body <- reserveResponse.as[io.circe.Json]
+    } yield {
+      assertEquals(reserveResponse.status, Status.BadRequest)
+      assert(
+        body.asObject.exists(_.contains("error")),
+        s"expected a JSON error body, got: $body"
+      )
+    }
+  }
+
+  test(
     "wrapped routes (with tracing middleware) record a span for a handled request"
   ) {
     Tracing.test[IO]("inventory-service-test").use { testTracer =>

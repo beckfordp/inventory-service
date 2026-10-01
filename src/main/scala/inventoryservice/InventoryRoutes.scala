@@ -141,7 +141,14 @@ object InventoryRoutes {
           .map[InventoryError](_ => InsufficientStock)(_ =>
             ErrorResponse("Insufficient stock")
           )
-      ) { case InsufficientStock => true }
+      ) { case InsufficientStock => true },
+      oneOfVariantValueMatcher(
+        statusCode(StatusCode.BadRequest)
+          .and(jsonBody[ErrorResponse])
+          .map[InventoryError](_ => InvalidQuantity)(_ =>
+            ErrorResponse("quantity must be positive")
+          )
+      ) { case InvalidQuantity => true }
     )
 
   private val reserveInventoryEndpoint: PublicEndpoint[
@@ -302,7 +309,9 @@ object InventoryRoutes {
               .as(Right(InventoryResponse(entity)))
           case Left(error) =>
             logger
-              .warn(Map("sku" -> req.sku))(s"Reservation failed: $error")
+              .warn(Map("sku" -> req.sku, "error" -> error.toString))(
+                "Reservation failed"
+              )
               .as(Left(error))
         }
       } yield result

@@ -111,4 +111,25 @@ class InventoryStoreSuite extends CatsEffectSuite {
       result <- store.reserve("unknown-sku", 10)
     } yield assertEquals(result, Left(InventoryNotFound))
   }
+
+  test("reserve returns InvalidQuantity for a zero or negative quantity") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      _ <- store.create("sku-widget-1", 100)
+      zero <- store.reserve("sku-widget-1", 0)
+      negative <- store.reserve("sku-widget-1", -5)
+    } yield {
+      assertEquals(zero, Left(InvalidQuantity))
+      assertEquals(negative, Left(InvalidQuantity))
+    }
+  }
+
+  test("reserve with an invalid quantity makes no mutation") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      created <- store.create("sku-widget-1", 100)
+      _ <- store.reserve("sku-widget-1", -5)
+      after <- store.get(created.id)
+    } yield assertEquals(after, Some(created))
+  }
 }

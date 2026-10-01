@@ -402,6 +402,29 @@ class InventoryStorePostgresSuite
   }
 
   test(
+    "reserve returns InvalidQuantity for a zero or negative quantity, with no mutation"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            created <- store.create(sku, 100)
+            zero <- store.reserve(sku, 0)
+            negative <- store.reserve(sku, -5)
+            after <- store.get(created.id)
+          } yield {
+            assertEquals(zero, Left(InvalidQuantity))
+            assertEquals(negative, Left(InvalidQuantity))
+            assertEquals(after, Some(created))
+          }
+        }
+    }
+  }
+
+  test(
     "concurrent reservations against the same sku never collectively oversell"
   ) {
     withContainers { postgres =>
