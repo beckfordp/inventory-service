@@ -28,6 +28,12 @@ object UpdateInventoryRequest {
   implicit val codec: Codec[UpdateInventoryRequest] = deriveCodec
 }
 
+final case class ReserveInventoryRequest(sku: String, quantity: Int)
+
+object ReserveInventoryRequest {
+  implicit val codec: Codec[ReserveInventoryRequest] = deriveCodec
+}
+
 final case class InventoryResponse(
     id: String,
     sku: String,
@@ -119,6 +125,36 @@ object InventoryRoutes {
       .in("inventorys" / path[String]("id"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
+
+  private val reserveErrorOutput: EndpointOutput[InventoryError] =
+    oneOf[InventoryError](
+      oneOfVariantValueMatcher(
+        statusCode(StatusCode.NotFound)
+          .and(jsonBody[ErrorResponse])
+          .map[InventoryError](_ => InventoryNotFound)(_ =>
+            ErrorResponse("Inventory not found")
+          )
+      ) { case InventoryNotFound => true },
+      oneOfVariantValueMatcher(
+        statusCode(StatusCode.Conflict)
+          .and(jsonBody[ErrorResponse])
+          .map[InventoryError](_ => InsufficientStock)(_ =>
+            ErrorResponse("Insufficient stock")
+          )
+      ) { case InsufficientStock => true }
+    )
+
+  private val reserveInventoryEndpoint: PublicEndpoint[
+    ReserveInventoryRequest,
+    InventoryError,
+    InventoryResponse,
+    Any
+  ] =
+    endpoint.post
+      .in("inventorys" / "reservations")
+      .in(jsonBody[ReserveInventoryRequest])
+      .out(jsonBody[InventoryResponse])
+      .errorOut(reserveErrorOutput)
 
   def serverEndpoint[F[_]: Async](
       store: InventoryStore[F],
@@ -246,6 +282,32 @@ object InventoryRoutes {
       } yield result
     }
 
+  def reserveInventoryServerEndpoint[F[_]: Async](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): ServerEndpoint[Any, F] =
+    reserveInventoryEndpoint.serverLogic[F] { req =>
+      for {
+        _ <- logger.info(
+          Map(
+            "method" -> "POST",
+            "path" -> "/inventorys/reservations",
+            "sku" -> req.sku
+          )
+        )("Received request")
+        result <- store.reserve(req.sku, req.quantity).flatMap {
+          case Right(entity) =>
+            logger
+              .info(Map("inventory_id" -> entity.id))("Request completed")
+              .as(Right(InventoryResponse(entity)))
+          case Left(error) =>
+            logger
+              .warn(Map("sku" -> req.sku))(s"Reservation failed: $error")
+              .as(Left(error))
+        }
+      } yield result
+    }
+
   def routes[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
@@ -256,7 +318,8 @@ object InventoryRoutes {
         getInventoryServerEndpoint(store, logger),
         updateInventoryServerEndpoint(store, logger),
         replaceInventoryServerEndpoint(store, logger),
-        deleteInventoryServerEndpoint(store, logger)
+        deleteInventoryServerEndpoint(store, logger),
+        reserveInventoryServerEndpoint(store, logger)
       )
     )
 }

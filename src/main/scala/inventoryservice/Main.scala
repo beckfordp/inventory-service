@@ -46,6 +46,8 @@ object Main extends IOApp.Simple {
                         .replaceInventoryServerEndpoint[IO](store, logger),
                       InventoryRoutes
                         .deleteInventoryServerEndpoint[IO](store, logger),
+                      InventoryRoutes
+                        .reserveInventoryServerEndpoint[IO](store, logger),
                       HealthRoutes.healthServerEndpoint[IO],
                       HealthRoutes.readyServerEndpoint[IO](store)
                     )
