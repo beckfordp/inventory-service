@@ -1,0 +1,5 @@
+Task: Phase 1 (Tech stack & infra), kafka-publish_20261001
+
+Summary: Added fs2-kafka 3.6.0 (producer only, no consumer) and testcontainers-scala-kafka 0.43.6 to build.sbt; documented both in tech-stack.md. Added a single-node KRaft-mode apache/kafka:3.8.0 broker to docker-compose.yml for local dev (verified it starts healthy via docker compose up -d kafka, then torn down). Also added *.hsw to .gitignore (Structure101 IDE artifact appeared, matching the gluon:add skill's convention).
+
+Why: this is the infra prerequisite for US-5.1's actual event-publishing code (Phase 2/3) - no behavior change yet, just dependencies/config.
