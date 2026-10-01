@@ -1,0 +1,18 @@
+Task: Phase 2 (Event payload + publisher), kafka-publish_20261001
+
+Summary: Added StockReservedEvent/StockReservationFailedEvent case classes + circe codecs (StockEvents.scala), matching gluon/docs/system-design.md's payload-contracts section exactly. Added KafkaConfig (bootstrapServers) to InventoryServiceConfig following the PostgresConfig pattern, wired into application.conf (localhost:9092 default, KAFKA_BOOTSTRAP_SERVERS override). Implemented StockEventPublisher (fs2-kafka KafkaProducer-backed, keyed by sku) with publishReserved/publishFailed, each wrapped in a 2s timeout.
+
+Deviation from plan.md's literal task wording: the publisher does NOT log-and-swallow failures internally - it propagates them, with Phase 3's HTTP layer responsible for catching/logging/discarding (same separation InventoryStore/InventoryRoutes already use).
+
+New integration test (StockEventPublisherSuite, real Testcontainers Kafka broker) proves both publish calls actually produce the right JSON on the right topic - not mocked.
+
+Files changed:
+- src/main/scala/inventoryservice/StockEvents.scala (new)
+- src/main/scala/inventoryservice/StockEventPublisher.scala (new)
+- src/main/scala/inventoryservice/InventoryServiceConfig.scala (KafkaConfig)
+- src/main/resources/application.conf (kafka block)
+- src/test/scala/inventoryservice/StockEventPublisherSuite.scala (new)
+- src/test/scala/inventoryservice/InventoryServiceConfigSuite.scala (kafka block in test fixtures)
+- .gitignore (scheduled_tasks.lock - unrelated Claude Code session artifact that appeared, excluded)
+
+Why: this is the actual event-publishing capability US-5.1 needs; Phase 3 wires it into the HTTP endpoint.
