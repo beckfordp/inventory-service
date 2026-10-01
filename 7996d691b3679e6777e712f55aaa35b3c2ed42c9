@@ -1,0 +1,6 @@
+Phase 2 checkpoint: Event payload + publisher (kafka-publish_20261001)
+
+Automated test command: sbt scalafmtCheck test
+Result: 69 passed, 0 failed, scalafmt clean.
+
+No separate manual verification walkthrough - Phase 2 produces no new HTTP-observable behavior (the publisher isn't wired to the reserve endpoint until Phase 3). The StockEventPublisherSuite integration test already IS the manual-equivalent verification: it runs against a real Testcontainers Kafka broker (not mocked) and proves both publishReserved and publishFailed each produce exactly one correctly-shaped JSON message on the right topic.
