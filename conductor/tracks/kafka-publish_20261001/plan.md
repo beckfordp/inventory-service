@@ -18,20 +18,25 @@ from there to review all track work as a whole.
       (Protocol in workflow.md) — `docker compose up -d` brings up postgres+kafka
       together, both healthy, clean teardown [bcc5b9c]
 
-## Phase 2: Event payload + publisher
-- [ ] Task: Write a failing integration test (Testcontainers Kafka) asserting a
+## Phase 2: Event payload + publisher [checkpoint: pending]
+- [x] Task: Write a failing integration test (Testcontainers Kafka) asserting a
       publish call produces exactly one JSON message with the correct fields on the
-      right topic
-- [ ] Task: Add `KafkaConfig` (bootstrap servers) to `InventoryServiceConfig`,
-      following the existing `PostgresConfig` pattern
-- [ ] Task: Define `StockReservedEvent(inventoryId, sku, quantity, timestamp)` /
+      right topic [6cbdfb7]
+- [x] Task: Add `KafkaConfig` (bootstrap servers) to `InventoryServiceConfig`,
+      following the existing `PostgresConfig` pattern [6cbdfb7]
+- [x] Task: Define `StockReservedEvent(inventoryId, sku, quantity, timestamp)` /
       `StockReservationFailedEvent(inventoryId, sku, quantity, timestamp)` case
       classes + circe codecs (matching
-      `gluon/docs/system-design.md`'s payload-contracts section)
-- [ ] Task: Implement `StockEventPublisher` (fs2-kafka `KafkaProducer`-backed) with
+      `gluon/docs/system-design.md`'s payload-contracts section) [6cbdfb7]
+- [x] Task: Implement `StockEventPublisher` (fs2-kafka `KafkaProducer`-backed) with
       `publishReserved`/`publishFailed`, each wrapped in a short bounded timeout
-      (e.g. 2s) that logs-and-swallows a failure/timeout rather than propagating it
-- [ ] Task: Run tests, confirm green
+      (2s). **Deviation from the task text as originally written:** the publisher
+      itself does NOT log-and-swallow a failure — it propagates a real
+      failure/timeout, matching how `InventoryStore` stays a pure capability with
+      no logging inside it in this codebase. Phase 3's HTTP wiring is responsible
+      for `.attempt` + logging + discarding the result, the same separation the
+      existing routes already use for `InventoryStore` errors. [6cbdfb7]
+- [x] Task: Run tests, confirm green — 69 passed, 0 failed [6cbdfb7]
 
 ## Phase 3: Wire into the HTTP endpoint
 - [ ] Task: Write a failing test (fake/mock `StockEventPublisher`) asserting:
