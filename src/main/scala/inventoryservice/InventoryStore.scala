@@ -152,6 +152,32 @@ object InventoryStore {
       RETURNING id
     """.query(uuid)
 
+  /** Atomic check-and-reserve: the `WHERE ... AND quantity_available >= $qty`
+    * guard means Postgres's own row-level locking does the concurrency-safety
+    * work - no app-level transaction/lock needed. `$qty` is bound three times
+    * (decrement, increment, guard), so the caller passes the same value three
+    * times.
+    */
+  private val reserveInventory: skunk.Query[
+    (Int, Int, String, Int),
+    (UUID, Int, Int, OffsetDateTime, OffsetDateTime)
+  ] =
+    sql"""
+      UPDATE "inventory"
+      SET quantity_available = quantity_available - $int4,
+          quantity_reserved = quantity_reserved + $int4,
+          updated_at = now()
+      WHERE sku = $text AND quantity_available >= $int4
+      RETURNING id, quantity_available, quantity_reserved, created_at, updated_at
+    """.query(uuid *: int4 *: int4 *: timestamptz *: timestamptz)
+
+  private val selectIdBySku: skunk.Query[String, UUID] =
+    sql"""
+      SELECT id
+      FROM "inventory"
+      WHERE sku = $text
+    """.query(uuid)
+
   private val pingQuery: skunk.Query[skunk.Void, Int] = sql"SELECT 1".query(
     int4
   )
@@ -317,14 +343,48 @@ object InventoryStore {
                     }
                 }
 
-              // Implemented in reserve-stock_20261001 Phase 3 (the atomic
-              // conditional UPDATE); the in-memory store's version lands
-              // first in Phase 2 so the domain/error-case work can be
-              // TDD'd independently of the Postgres query.
               def reserve(
                   sku: String,
                   quantity: Int
-              ): F[Either[InventoryError, Inventory]] = ???
+              ): F[Either[InventoryError, Inventory]] =
+                timed("reserve") {
+                  pool.use { session =>
+                    session
+                      .prepare(reserveInventory)
+                      .flatMap(
+                        _.option((quantity, quantity, sku, quantity))
+                      )
+                      .flatMap {
+                        case Some(
+                              (
+                                id,
+                                quantityAvailable,
+                                quantityReserved,
+                                createdAt,
+                                updatedAt
+                              )
+                            ) =>
+                          (Right(
+                            Inventory(
+                              id.toString,
+                              sku,
+                              quantityAvailable,
+                              quantityReserved,
+                              createdAt.toInstant,
+                              updatedAt.toInstant
+                            )
+                          ): Either[InventoryError, Inventory]).pure[F]
+                        case None =>
+                          session
+                            .prepare(selectIdBySku)
+                            .flatMap(_.option(sku))
+                            .map {
+                              case Some(_) => Left(InsufficientStock)
+                              case None    => Left(InventoryNotFound)
+                            }
+                      }
+                  }
+                }
 
               def ping: F[Boolean] =
                 timed("ping") {
