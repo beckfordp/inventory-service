@@ -1,5 +1,6 @@
 package inventoryservice
 
+import cats.Applicative
 import cats.effect.{Async, Resource}
 import cats.effect.syntax.all._
 import cats.syntax.all._
@@ -25,6 +26,17 @@ object StockEventPublisher {
     * failure apart from success.
     */
   private val publishTimeout: FiniteDuration = 2.seconds
+
+  /** For call sites that don't care about Kafka at all (most of
+    * `InventoryRoutesSuite`'s tests) - never produces anything.
+    */
+  def noOp[F[_]: Applicative]: StockEventPublisher[F] =
+    new StockEventPublisher[F] {
+      def publishReserved(event: StockReservedEvent): F[Unit] =
+        Applicative[F].unit
+      def publishFailed(event: StockReservationFailedEvent): F[Unit] =
+        Applicative[F].unit
+    }
 
   def resource[F[_]: Async](
       config: KafkaConfig

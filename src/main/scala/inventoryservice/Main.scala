@@ -33,36 +33,42 @@ object Main extends IOApp.Simple {
               )("inventory-service starting")
               _ <- InventoryStore.postgres[IO](config.postgres, meter).use {
                 store =>
-                  val docsRoutes = Docs.routes[IO](
-                    "Inventory Service",
-                    "1.0",
-                    List(
-                      InventoryRoutes.serverEndpoint[IO](store, logger),
-                      InventoryRoutes
-                        .getInventoryServerEndpoint[IO](store, logger),
-                      InventoryRoutes
-                        .updateInventoryServerEndpoint[IO](store, logger),
-                      InventoryRoutes
-                        .replaceInventoryServerEndpoint[IO](store, logger),
-                      InventoryRoutes
-                        .deleteInventoryServerEndpoint[IO](store, logger),
-                      InventoryRoutes
-                        .reserveInventoryServerEndpoint[IO](store, logger),
-                      HealthRoutes.healthServerEndpoint[IO],
-                      HealthRoutes.readyServerEndpoint[IO](store)
-                    )
-                  )
-                  val tracedRoutes =
-                    ServerTracing.middleware(tracer)(docsRoutes)
-                  val routes =
-                    ServerMetrics.middleware[IO](meter)(tracedRoutes)
-                  EmberServerBuilder
-                    .default[IO]
-                    .withHost(host"0.0.0.0")
-                    .withPort(port)
-                    .withHttpApp(routes.orNotFound)
-                    .build
-                    .useForever
+                  StockEventPublisher.resource[IO](config.kafka).use {
+                    publisher =>
+                      val docsRoutes = Docs.routes[IO](
+                        "Inventory Service",
+                        "1.0",
+                        List(
+                          InventoryRoutes.serverEndpoint[IO](store, logger),
+                          InventoryRoutes
+                            .getInventoryServerEndpoint[IO](store, logger),
+                          InventoryRoutes
+                            .updateInventoryServerEndpoint[IO](store, logger),
+                          InventoryRoutes
+                            .replaceInventoryServerEndpoint[IO](store, logger),
+                          InventoryRoutes
+                            .deleteInventoryServerEndpoint[IO](store, logger),
+                          InventoryRoutes.reserveInventoryServerEndpoint[IO](
+                            store,
+                            logger,
+                            publisher
+                          ),
+                          HealthRoutes.healthServerEndpoint[IO],
+                          HealthRoutes.readyServerEndpoint[IO](store)
+                        )
+                      )
+                      val tracedRoutes =
+                        ServerTracing.middleware(tracer)(docsRoutes)
+                      val routes =
+                        ServerMetrics.middleware[IO](meter)(tracedRoutes)
+                      EmberServerBuilder
+                        .default[IO]
+                        .withHost(host"0.0.0.0")
+                        .withPort(port)
+                        .withHttpApp(routes.orNotFound)
+                        .build
+                        .useForever
+                  }
               }
             } yield ()
         }
