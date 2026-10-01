@@ -2,9 +2,6 @@
 
 This file tracks all major tracks for the project.
 
-- [x] **Track: US-5.1: publish inventory.stock-reserved / inventory.stock-reservation-failed**
-  *Link: [./tracks/kafka-publish_20261001/](./tracks/kafka-publish_20261001/)*
-
 ---
 
 ## Backlog
