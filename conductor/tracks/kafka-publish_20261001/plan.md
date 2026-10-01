@@ -18,7 +18,7 @@ from there to review all track work as a whole.
       (Protocol in workflow.md) — `docker compose up -d` brings up postgres+kafka
       together, both healthy, clean teardown [bcc5b9c]
 
-## Phase 2: Event payload + publisher [checkpoint: pending]
+## Phase 2: Event payload + publisher [checkpoint: 7996d69]
 - [x] Task: Write a failing integration test (Testcontainers Kafka) asserting a
       publish call produces exactly one JSON message with the correct fields on the
       right topic [6cbdfb7]
