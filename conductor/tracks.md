@@ -2,6 +2,9 @@
 
 This file tracks all major tracks for the project.
 
+- [ ] **Track: US-5.1: publish inventory.stock-reserved / inventory.stock-reservation-failed**
+  *Link: [./tracks/kafka-publish_20261001/](./tracks/kafka-publish_20261001/)*
+
 ---
 
 ## Backlog
@@ -10,7 +13,5 @@ Title-only placeholders for future tracks — not yet detailed (no spec/plan, no
 folder), so `/conductor:implement` cannot pick these up by accident. Reorder freely as
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
-
-- US-5.1: publish inventory.stock-reserved / inventory.stock-reservation-failed
 
 ---
