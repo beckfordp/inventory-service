@@ -38,19 +38,20 @@ track work as a whole.
       distinguish not-found vs. insufficient-stock [fb4f423]
 - [x] Task: Run tests, confirm green [fb4f423]
 
-## Phase 4: HTTP endpoint
-- [ ] Task: Write failing `InventoryRoutesSuite` tests for `POST
+## Phase 4: HTTP endpoint [checkpoint: pending]
+- [x] Task: Write failing `InventoryRoutesSuite` tests for `POST
       /inventorys/reservations`: 200 + `InventoryResponse` on success, 409 + error
-      body on insufficient stock, 404 + error body on unknown sku
-- [ ] Task: Add `ReserveInventoryRequest(sku: String, quantity: Int)` DTO + codec
-- [ ] Task: Add the `reserveInventoryEndpoint`/`reserveInventoryServerEndpoint`
+      body on insufficient stock, 404 + error body on unknown sku [69a0e35]
+- [x] Task: Add `ReserveInventoryRequest(sku: String, quantity: Int)` DTO + codec
+      [69a0e35]
+- [x] Task: Add the `reserveInventoryEndpoint`/`reserveInventoryServerEndpoint`
       (tapir `PublicEndpoint`, `POST /inventorys/reservations`, `errorOut` mapping
       `InsufficientStock→409` and reusing the existing `notFoundOutput` for
-      `InventoryNotFound→404`)
-- [ ] Task: Wire the new server endpoint into `InventoryRoutes.routes` and `Main`'s
-      `docsRoutes` list
-- [ ] Task: Run tests, confirm green
-- [ ] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
-      code)
+      `InventoryNotFound→404`) [69a0e35]
+- [x] Task: Wire the new server endpoint into `InventoryRoutes.routes` and `Main`'s
+      `docsRoutes` list [69a0e35]
+- [x] Task: Run tests, confirm green [69a0e35]
+- [x] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
+      code) — 90.48% statement / 91.49% branch overall [69a0e35]
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: HTTP endpoint' (Protocol
       in workflow.md)
