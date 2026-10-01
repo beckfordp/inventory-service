@@ -18,6 +18,9 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
       |  user = "inventory"
       |  password = "inventory"
       |}
+      |kafka {
+      |  bootstrap-servers = "localhost:9092"
+      |}
       |""".stripMargin
 
   test("loads a fully-specified config") {
@@ -36,7 +39,8 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
             database = "inventory",
             user = "inventory",
             password = "inventory"
-          )
+          ),
+          kafka = KafkaConfig(bootstrapServers = "localhost:9092")
         )
       )
     )
@@ -52,6 +56,9 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
         |  port = 5432
         |  database = "inventory"
         |  user = "inventory"
+        |}
+        |kafka {
+        |  bootstrap-servers = "localhost:9092"
         |}
         |""".stripMargin
 
@@ -78,6 +85,7 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
           "inventory"
         )
       )
+      assertEquals(config.kafka, KafkaConfig("localhost:9092"))
     }
   }
 }

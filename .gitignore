@@ -36,3 +36,6 @@ metals.sbt
 
 # Structure101
 *.hsw
+
+# Claude Code session-local runtime state (not project config)
+.claude/scheduled_tasks.lock
