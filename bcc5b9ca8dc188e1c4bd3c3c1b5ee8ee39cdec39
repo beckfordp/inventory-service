@@ -1,0 +1,11 @@
+Phase 1 checkpoint: Tech stack & infra (kafka-publish_20261001)
+
+Automated test command: sbt scalafmtCheck test
+Result: 67 passed, 0 failed, scalafmt clean (no behavior change in this phase, just deps/config).
+
+Manual verification (prompting off, ran directly rather than an interactive walkthrough since there's no HTTP-level behavior yet to script against):
+1. docker compose up -d (postgres + kafka together)
+2. Both reached healthy status (kafka's apache/kafka:3.8.0 KRaft broker, postgres:16-alpine) within ~10s
+3. docker compose down -v - clean teardown, no errors
+
+This confirms the new Kafka dependency/infra is sound before Phase 2 builds the actual publisher on top of it.
