@@ -1,0 +1,9 @@
+Task: Phase 1 (Schema) - unique constraint on sku, reserve-stock_20261001
+
+Summary: Added Flyway migration V2 adding UNIQUE(sku) to the inventory table, required so the upcoming reserve-stock endpoint can look up inventory by sku unambiguously. Added a failing-then-passing test proving the constraint is enforced. Fixed 6 pre-existing tests in InventoryStorePostgresSuite that collided under the new constraint (they share one Testcontainers Postgres container across the whole suite and all reused the literal sku "sku-widget-1"); introduced a uniqueSku() helper so each test gets its own sku.
+
+Files changed:
+- src/main/resources/db/migration/V2__add_inventory_sku_unique_constraint.sql (new)
+- src/test/scala/inventoryservice/InventoryStorePostgresSuite.scala (new duplicate-sku test + uniqueSku() fix across existing tests)
+
+Why: US-4.1 reserve-stock endpoint needs to look up inventory by sku; today's schema allows duplicate skus, which would make that lookup ambiguous.
