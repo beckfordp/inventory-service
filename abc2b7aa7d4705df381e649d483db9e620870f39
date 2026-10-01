@@ -1,0 +1,17 @@
+Task: Phase 3 (Wire into HTTP endpoint), kafka-publish_20261001
+
+Summary: InventoryRoutes.reserveInventoryServerEndpoint now publishes after store.reserve: Right -> publishReserved(sku, requested quantity, now); Left(InsufficientStock) -> publishFailed(sku, requested quantity, now); Left(InventoryNotFound)/Left(InvalidQuantity) -> publisher never called (caller-input errors, not stock outcomes, per spec). The publish call is .attempt'd and logged-not-propagated at this layer (InventoryStore.reserve/StockEventPublisher stay pure capabilities; the routes layer owns error handling, matching the existing create/get/update/delete pattern).
+
+InventoryRoutes.routes gained a 2-arg overload forwarding to StockEventPublisher.noOp[F], so the ~20 pre-existing tests that don't touch Kafka needed zero changes - only the new reserve-related tests pass an explicit publisher. (Tried a default parameter first; Scala doesn't carry a method's own context-bound evidence into its default-value expression, so StockEventPublisher.noOp[F] couldn't find Applicative[F] there - fixed via overload instead.)
+
+Wired into Main: StockEventPublisher.resource[IO](config.kafka) acquired alongside the Postgres store, passed into reserveInventoryServerEndpoint.
+
+Bug caught and fixed before this commit: publishOutcome originally used entity.quantityReserved (the record's cumulative total) and a hardcoded 0 instead of the actually-requested quantity - fixed to thread req.quantity through explicitly.
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryRoutes.scala (publishOutcome, reserveInventoryServerEndpoint, routes overload)
+- src/main/scala/inventoryservice/Main.scala (StockEventPublisher.resource wiring)
+- src/test/scala/inventoryservice/InventoryRoutesSuite.scala (recordingPublisher fixture + 3 new tests)
+- src/main/scala/inventoryservice/StockEventPublisher.scala, StockEvents.scala (scalafmt only)
+
+Why: this is the actual integration point - US-5.1 is only done once a real reserve-stock HTTP call produces the right Kafka event.
