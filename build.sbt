@@ -12,6 +12,7 @@ val flywayVersion = "11.8.2"
 val postgresqlJdbcVersion = "42.7.13"
 val pureconfigVersion = "0.17.10"
 val testcontainersScalaVersion = "0.43.6"
+val fs2KafkaVersion = "3.6.0"
 // Pinned to match the purerestlib version this service is built against — see
 // README's "Consuming purerest as a dependency" section.
 val purerestlibVersion = "0.1.0"
@@ -67,6 +68,9 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
       // skunk: non-blocking, pure-FP Postgres access — this service's persistence layer.
       "org.tpolecat" %% "skunk-core" % skunkVersion,
+      // fs2-kafka: pure-FP, FS2-native Kafka producer (publish-only; this
+      // service has no consumer).
+      "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,
       // flyway: JDBC-based schema migration tool, run on startup to create/update the
       // inventory table. Independent of Skunk (which handles all runtime queries).
       "org.flywaydb" % "flyway-core" % flywayVersion,
@@ -84,6 +88,7 @@ lazy val root = project
       // testcontainers-scala: spins up a real, ephemeral Postgres container for
       // integration tests (not used by main code).
       "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
+      "com.dimafeng" %% "testcontainers-scala-kafka" % testcontainersScalaVersion % Test,
       "com.dimafeng" %% "testcontainers-scala-munit" % testcontainersScalaVersion % Test,
       // log4cats-testing: purerestlib keeps this Test-scoped (doesn't propagate to
       // consumers), so this service declares its own copy to assert on log output
