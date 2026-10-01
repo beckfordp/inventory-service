@@ -1,0 +1,9 @@
+Task: Phase 3 (Postgres implementation), reserve-stock_20261001
+
+Summary: Implemented InventoryStore.postgres.reserve using a single atomic conditional UPDATE (quantity_available -= qty, quantity_reserved += qty WHERE sku = ? AND quantity_available >= ? RETURNING ...). On 0 rows affected, a follow-up SELECT id FROM inventory WHERE sku = ? disambiguates InventoryNotFound (no row) vs InsufficientStock (row exists, guard failed). Added 4 new tests: success, insufficient-stock-no-mutation, unknown-sku, and a concurrent-reservations test (5 parallel reserve(sku,30) calls against 100 available, asserting the sum of successful reservations never exceeds available and every failure is InsufficientStock) proving Postgres row-level locking makes this safe without an app-level transaction/lock.
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryStore.scala (reserveInventory + selectIdBySku queries, postgres.reserve implementation replacing the Phase 2 ??? stub)
+- src/test/scala/inventoryservice/InventoryStorePostgresSuite.scala (4 new tests)
+
+Why: completes the concurrency-safety requirement from the track's spec.md (US-4.1) - this is the piece that actually proves overselling can't happen under concurrent checkout requests.
