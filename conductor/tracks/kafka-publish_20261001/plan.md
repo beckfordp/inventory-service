@@ -45,15 +45,17 @@ from there to review all track work as a whole.
       existing routes already use for `InventoryStore` errors. [6cbdfb7]
 - [x] Task: Run tests, confirm green — 69 passed, 0 failed [6cbdfb7]
 
-## Phase 3: Wire into the HTTP endpoint
-- [ ] Task: Write a failing test (fake/mock `StockEventPublisher`) asserting:
+## Phase 3: Wire into the HTTP endpoint [checkpoint: pending]
+- [x] Task: Write a failing test (fake/mock `StockEventPublisher`) asserting:
       success → `publishReserved` called once with correct fields; `InsufficientStock`
       → `publishFailed` called once; `InventoryNotFound`/`InvalidQuantity` → publisher
-      never called
-- [ ] Task: Wire `StockEventPublisher` into `reserveInventoryServerEndpoint` (call
+      never called [abc2b7a]
+- [x] Task: Wire `StockEventPublisher` into `reserveInventoryServerEndpoint` (call
       after `store.reserve`, before building the response) and into `Main` (construct
-      the real fs2-kafka producer, pass it through)
-- [ ] Task: Run tests, confirm green
+      the real fs2-kafka producer, pass it through). `InventoryRoutes.routes` got a
+      2-arg overload forwarding to `StockEventPublisher.noOp[F]`, so the ~20
+      pre-existing tests that don't care about Kafka needed no changes. [abc2b7a]
+- [x] Task: Run tests, confirm green — 72 passed, 0 failed [abc2b7a]
 - [ ] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
       code)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Wire into the HTTP
