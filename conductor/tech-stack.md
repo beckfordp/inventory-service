@@ -29,11 +29,18 @@
   ADR 0005 flags a possible future migration off GitHub Packages (JitPack or
   Maven Central) — not yet adopted.
 
+## Messaging
+- fs2-kafka 3.6.0 — pure-FP, FS2-native Kafka producer (publish-only for
+  now; no consumer in this service). Chosen over the raw Java
+  `kafka-clients` API to match this codebase's tagless-final/no-blocking-call
+  style, and because it's the library the platform's own reference project
+  (`gvolpe/trading`, see `gluon/docs/product.md`) uses.
+
 ## Testing
 - munit 1.3.6 + munit-cats-effect 2.2.1
 - log4cats-testing 2.8.0 — assert on structured log output
-- testcontainers-scala 0.43.6 (postgresql + munit modules) — real, ephemeral
-  Postgres for integration tests, no manual local setup
+- testcontainers-scala 0.43.6 (postgresql + munit + kafka modules) — real,
+  ephemeral Postgres/Kafka for integration tests, no manual local setup
 - scalafmt (default Scala 3 style) — `sbt scalafmtCheck test` run in CI
 
 ## Packaging / local deploy
@@ -41,9 +48,7 @@
 - Docker image: `eclipse-temurin:21-jre`
 - Docker Compose — local Postgres
 
-## Not yet in `build.sbt` (needed for upcoming backlog items)
-- Kafka client — for US-5.1 (publish `inventory.stock-reserved` /
-  `inventory.stock-reservation-failed`)
+## Not yet in `build.sbt`
 - No Redis client needed — `gluon/docs/system-design.md`'s services table
   lists inventory-service's Redis column as `—`
 
