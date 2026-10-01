@@ -1,0 +1,5 @@
+Fix: drop inventoryId from stock event payloads (kafka-publish_20261001)
+
+Discovered while implementing Phase 3 (HTTP wiring): InventoryStore.reserve's InsufficientStock result carries no Inventory entity, so there was no id to populate StockReservationFailedEvent.inventoryId with - and order-service (the consumer) never has an inventoryId to correlate against in the first place, only the sku it asked to reserve.
+
+User chose to drop inventoryId from the contract entirely rather than add a lookup or make it optional. Updated: StockEvents.scala (both case classes), StockEventPublisherSuite.scala (test fixtures), and gluon/docs/system-design.md's payload-contracts section (separate commit in the gluon repo, 0b24254).
