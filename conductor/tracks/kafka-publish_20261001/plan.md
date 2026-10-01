@@ -27,7 +27,14 @@ from there to review all track work as a whole.
 - [x] Task: Define `StockReservedEvent(inventoryId, sku, quantity, timestamp)` /
       `StockReservationFailedEvent(inventoryId, sku, quantity, timestamp)` case
       classes + circe codecs (matching
-      `gluon/docs/system-design.md`'s payload-contracts section) [6cbdfb7]
+      `gluon/docs/system-design.md`'s payload-contracts section) [6cbdfb7].
+      **Correction made during Phase 3:** dropped `inventoryId` from both events
+      (and from the cross-repo contract doc) — `InventoryStore.reserve`'s failure
+      case carries no `Inventory` to pull an id from, and order-service (the
+      consumer) never has inventory-service's internal id to correlate against
+      in the first place, only `sku`. Final shape:
+      `StockReservedEvent(sku, quantity, timestamp)` /
+      `StockReservationFailedEvent(sku, quantity, timestamp)`. [486683f]
 - [x] Task: Implement `StockEventPublisher` (fs2-kafka `KafkaProducer`-backed) with
       `publishReserved`/`publishFailed`, each wrapped in a short bounded timeout
       (2s). **Deviation from the task text as originally written:** the publisher
