@@ -1,12 +1,13 @@
 # Plan — reserve-stock_20261001
 
 ## Phase 1: Schema — unique constraint on sku
-- [ ] Task: Write failing test asserting a duplicate-sku insert violates a unique
+- [x] Task: Write failing test asserting a duplicate-sku insert violates a unique
       constraint (new test in `InventoryStorePostgresSuite.scala` or a dedicated
-      `MigrationsSuite` case)
-- [ ] Task: Add Flyway migration `V2__add_inventory_sku_unique_constraint.sql`
+      `MigrationsSuite` case) [b93ebff]
+- [x] Task: Add Flyway migration `V2__add_inventory_sku_unique_constraint.sql`
       (`ALTER TABLE "inventory" ADD CONSTRAINT inventory_sku_unique UNIQUE (sku)`)
-- [ ] Task: Run tests, confirm green
+      [b93ebff]
+- [x] Task: Run tests, confirm green [b93ebff]
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Schema' (Protocol in
       workflow.md)
 
