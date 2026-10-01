@@ -1,0 +1,17 @@
+Phase 4 checkpoint: HTTP endpoint (reserve-stock_20261001) - FINAL PHASE OF TRACK
+
+Automated test command: sbt scalafmtCheck test
+Result: 63 passed, 0 failed, scalafmt clean.
+
+Coverage: sbt coverage test coverageReport -> 90.48% statement / 91.49% branch overall (target >80%).
+
+Manual verification: scripts/verify-reserve-stock.sh (committed, prompting-off mode per /prompt skill - run directly instead of an interactive walkthrough):
+1. docker compose up -d (fresh volumes) + sbt run
+2. POST /inventorys {sku, quantityAvailable:100} -> 201
+3. POST /inventorys/reservations {sku, quantity:30} -> 200, quantityAvailable=70, quantityReserved=30
+4. POST /inventorys/reservations {sku, quantity:80} (only 70 available) -> 409, and a follow-up GET confirms quantityAvailable is still 70 (no mutation)
+5. POST /inventorys/reservations {sku: unknown, quantity:1} -> 404
+6. GET /health -> 200, GET /docs -> 200
+All checks passed.
+
+This closes the reserve-stock_20261001 track (US-4.1): all 4 phases (schema, domain/store, Postgres, HTTP) complete, each phase's own tests + manual verification passed.
