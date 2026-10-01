@@ -345,4 +345,98 @@ class InventoryStorePostgresSuite
         }
     }
   }
+
+  test("reserve decrements available and increments reserved on success") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            _ <- store.create(sku, 100)
+            result <- store.reserve(sku, 30)
+          } yield result match {
+            case Right(entity) =>
+              assertEquals(entity.quantityAvailable, 70)
+              assertEquals(entity.quantityReserved, 30)
+            case Left(error) =>
+              fail(s"expected a successful reservation, got: $error")
+          }
+        }
+    }
+  }
+
+  test(
+    "reserve returns InsufficientStock and makes no mutation when quantity exceeds available"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            created <- store.create(sku, 10)
+            result <- store.reserve(sku, 20)
+            after <- store.get(created.id)
+          } yield {
+            assertEquals(result, Left(InsufficientStock))
+            assertEquals(after, Some(created))
+          }
+        }
+    }
+  }
+
+  test("reserve returns InventoryNotFound for an unknown sku") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          store.reserve(uniqueSku(), 10).map { result =>
+            assertEquals(result, Left(InventoryNotFound))
+          }
+        }
+    }
+  }
+
+  test(
+    "concurrent reservations against the same sku never collectively oversell"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            _ <- store.create(sku, 100)
+            // 5 concurrent reservations of 30 each = 150 requested against
+            // 100 available; at most 3 can succeed (3 * 30 = 90 <= 100, a
+            // 4th would push it to 120).
+            results <- List.fill(5)(store.reserve(sku, 30)).parSequence
+            finalState <- store.get(
+              results.collectFirst { case Right(entity) => entity.id }.get
+            )
+          } yield {
+            val succeeded = results.collect { case Right(entity) => entity }
+            val failed = results.collect { case Left(error) => error }
+            assertEquals(succeeded.size + failed.size, 5)
+            assert(
+              failed.forall(_ == InsufficientStock),
+              s"expected every failure to be InsufficientStock, got: $failed"
+            )
+            assert(
+              succeeded.size * 30 <= 100,
+              s"expected at most 3 successful reservations, got: ${succeeded.size}"
+            )
+            assertEquals(
+              finalState.map(_.quantityReserved),
+              Some(succeeded.size * 30)
+            )
+          }
+        }
+    }
+  }
 }
