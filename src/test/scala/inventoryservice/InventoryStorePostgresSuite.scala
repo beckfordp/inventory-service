@@ -29,13 +29,20 @@ class InventoryStorePostgresSuite
       password = postgres.password
     )
 
+  /** All tests in this suite share a single Postgres container
+    * (`TestContainerForAll`), so each test needs its own sku now that sku is
+    * unique — otherwise it collides with whatever another test already
+    * inserted.
+    */
+  private def uniqueSku(): String = s"sku-${java.util.UUID.randomUUID()}"
+
   test("create persists an entity and returns it with a generated id") {
     withContainers { postgres =>
       val config = configFor(postgres)
       Migrations.run[IO](config) *> InventoryStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
-          store.create("sku-widget-1", 100).map { entity =>
+          store.create(uniqueSku(), 100).map { entity =>
             assert(entity.id.nonEmpty)
           }
         }
@@ -50,9 +57,26 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create("sku-widget-1", 100)
-            second <- store.create("sku-widget-1", 100)
+            first <- store.create(uniqueSku(), 100)
+            second <- store.create(uniqueSku(), 100)
           } yield assertNotEquals(first.id, second.id)
+        }
+    }
+  }
+
+  test("create fails for a sku that already exists (unique constraint)") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            _ <- store.create("sku-widget-1", 100)
+            second <- store.create("sku-widget-1", 50).attempt
+          } yield assert(
+            second.isLeft,
+            s"expected a duplicate sku to be rejected, got: $second"
+          )
         }
     }
   }
@@ -64,7 +88,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("sku-widget-1", 100)
+            created <- store.create(uniqueSku(), 100)
             found <- store.get(created.id)
           } yield assertEquals(found, Some(created))
         }
@@ -102,7 +126,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("sku-widget-1", 100)
+            created <- store.create(uniqueSku(), 100)
             updated <- store.update(created.id, 100, 0)
           } yield {
             assertEquals(updated.map(_.id), Some(created.id))
@@ -146,7 +170,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create("sku-widget-1", 100)
+            created <- store.create(uniqueSku(), 100)
             deleted <- store.delete(created.id)
             found <- store.get(created.id)
           } yield {
@@ -214,7 +238,7 @@ class InventoryStorePostgresSuite
             .postgres[IO](config, testMeter.meter)
             .use { store =>
               for {
-                created <- store.create("sku-widget-1", 100)
+                created <- store.create(uniqueSku(), 100)
                 _ <- store.get(created.id)
                 metrics <- testMeter.collectMetrics
               } yield {
@@ -257,7 +281,7 @@ class InventoryStorePostgresSuite
             .postgres[IO](unreachableConfig, testMeter.meter)
             .use { store =>
               for {
-                result <- store.create("sku-widget-1", 100).attempt
+                result <- store.create(uniqueSku(), 100).attempt
                 metrics <- testMeter.collectMetrics
               } yield {
                 assert(
@@ -297,9 +321,10 @@ class InventoryStorePostgresSuite
       Migrations.run[IO](config) *> InventoryStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
+          val sku = uniqueSku()
           for {
             ready <- store.ping
-            created <- store.create("sku-widget-1", 100)
+            created <- store.create(sku, 100)
             read1 <- store.get(created.id)
             updated <- store.update(created.id, 100, 0)
             read2 <- store.get(created.id)
@@ -308,7 +333,7 @@ class InventoryStorePostgresSuite
           } yield {
             assert(ready, "expected the database to be ready")
             assertEquals(read1, Some(created))
-            assertEquals(updated.map(_.sku), Some("sku-widget-1"))
+            assertEquals(updated.map(_.sku), Some(sku))
             assertEquals(updated.map(_.quantityAvailable), Some(100))
             assertEquals(updated.map(_.quantityReserved), Some(0))
             assertEquals(read2, updated)
