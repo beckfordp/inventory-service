@@ -1,6 +1,6 @@
 # Plan — reserve-stock_20261001
 
-## Phase 1: Schema — unique constraint on sku
+## Phase 1: Schema — unique constraint on sku [checkpoint: c5ddc06]
 - [x] Task: Write failing test asserting a duplicate-sku insert violates a unique
       constraint (new test in `InventoryStorePostgresSuite.scala` or a dedicated
       `MigrationsSuite` case) [b93ebff]
@@ -8,8 +8,8 @@
       (`ALTER TABLE "inventory" ADD CONSTRAINT inventory_sku_unique UNIQUE (sku)`)
       [b93ebff]
 - [x] Task: Run tests, confirm green [b93ebff]
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Schema' (Protocol in
-      workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Schema' (Protocol in
+      workflow.md) [c5ddc06]
 
 ## Phase 2: Domain error + store method
 - [ ] Task: Write failing unit tests for `InventoryStore.reserve(sku, quantity)`
