@@ -1,0 +1,11 @@
+Task: Phase 2 (Domain error + store method), reserve-stock_20261001
+
+Summary: Added InsufficientStock to InventoryError, added reserve(sku, quantity) to the InventoryStore trait and its in-memory implementation (decrements quantityAvailable, increments quantityReserved atomically via Ref.modify; returns Left(InventoryNotFound)/Left(InsufficientStock) for the respective failure cases). The postgres store implementation gets a temporary ??? stub for reserve so the project compiles - Phase 3 replaces it with the real conditional-UPDATE implementation. Also added reserve to the three hand-rolled InventoryStore[IO] test stubs in HealthRoutesSuite/InventoryRoutesSuite (trait change forced them to update too).
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryError.scala
+- src/main/scala/inventoryservice/InventoryStore.scala
+- src/test/scala/inventoryservice/InventoryStoreSuite.scala (new reserve tests)
+- src/test/scala/inventoryservice/HealthRoutesSuite.scala, InventoryRoutesSuite.scala, InventoryStorePostgresSuite.scala (stub/formatting updates for the new trait method)
+
+Why: US-4.1 needs an atomic reserve operation; this phase lands the domain error case and the simpler in-memory implementation first, independent of the Postgres query (Phase 3).
