@@ -45,7 +45,7 @@ from there to review all track work as a whole.
       existing routes already use for `InventoryStore` errors. [6cbdfb7]
 - [x] Task: Run tests, confirm green — 69 passed, 0 failed [6cbdfb7]
 
-## Phase 3: Wire into the HTTP endpoint [checkpoint: pending]
+## Phase 3: Wire into the HTTP endpoint [checkpoint: e0ef5d8]
 - [x] Task: Write a failing test (fake/mock `StockEventPublisher`) asserting:
       success → `publishReserved` called once with correct fields; `InsufficientStock`
       → `publishFailed` called once; `InventoryNotFound`/`InvalidQuantity` → publisher
@@ -58,5 +58,7 @@ from there to review all track work as a whole.
 - [x] Task: Run tests, confirm green — 72 passed, 0 failed [abc2b7a]
 - [x] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
       code) — 89.61% statement / 86.89% branch overall [93b4fcf]
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Wire into the HTTP
-      endpoint' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Wire into the HTTP
+      endpoint' (Protocol in workflow.md) — via scripts/verify-kafka-publish.sh
+      (prompting off), confirmed real Kafka messages produced on both topics
+      [e0ef5d8]
