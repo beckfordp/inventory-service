@@ -1,0 +1,15 @@
+Phase 3 checkpoint: Wire into the HTTP endpoint (kafka-publish_20261001) - FINAL PHASE OF TRACK
+
+Automated test command: sbt scalafmtCheck test
+Result: 72 passed, 0 failed, scalafmt clean.
+
+Coverage: sbt coverage test coverageReport -> 89.61% statement / 86.89% branch overall (target >80%).
+
+Manual verification: scripts/verify-kafka-publish.sh (committed, prompting-off mode per /prompt skill - run directly):
+1. docker compose up -d (postgres + kafka, fresh volumes) + sbt run
+2. POST /inventorys {sku, quantityAvailable:100} -> 201
+3. POST /inventorys/reservations {sku, quantity:30} -> 200, and the real Kafka broker produced {"sku":...,"quantity":30,"timestamp":...} on inventory.stock-reserved (consumed via kafka-console-consumer.sh inside the container)
+4. POST /inventorys/reservations {sku, quantity:80} (only 70 left) -> 409, and the broker produced the matching failure event on inventory.stock-reservation-failed
+All checks passed.
+
+This closes the kafka-publish_20261001 track (US-5.1): all 3 phases (tech stack/infra, event payload/publisher, HTTP wiring) complete. One design correction surfaced and resolved along the way (inventoryId dropped from both the case classes and the cross-repo contract doc in gluon/docs/system-design.md) and one bug caught before commit (publishOutcome used the wrong quantity source initially).
