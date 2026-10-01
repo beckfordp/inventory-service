@@ -11,15 +11,16 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Schema' (Protocol in
       workflow.md) [c5ddc06]
 
-## Phase 2: Domain error + store method
-- [ ] Task: Write failing unit tests for `InventoryStore.reserve(sku, quantity)`
+## Phase 2: Domain error + store method [checkpoint: 89c9e16]
+- [x] Task: Write failing unit tests for `InventoryStore.reserve(sku, quantity)`
       against the in-memory store: success (decrements/increments correctly),
-      insufficient stock, unknown sku
-- [ ] Task: Add `InsufficientStock` case object to `InventoryError`
-- [ ] Task: Add `reserve(sku: String, quantity: Int): F[Either[InventoryError,
+      insufficient stock, unknown sku [89c9e16]
+- [x] Task: Add `InsufficientStock` case object to `InventoryError` [89c9e16]
+- [x] Task: Add `reserve(sku: String, quantity: Int): F[Either[InventoryError,
       Inventory]]` to the `InventoryStore` trait; implement in
-      `InventoryStore.inMemory`
-- [ ] Task: Run tests, confirm green
+      `InventoryStore.inMemory` (the `postgres` implementation gets a temporary
+      `???` stub, satisfied for real in Phase 3) [89c9e16]
+- [x] Task: Run tests, confirm green [89c9e16]
 
 ## Phase 3: Postgres implementation
 - [ ] Task: Write failing `InventoryStorePostgresSuite` tests for `reserve`: success
