@@ -22,17 +22,17 @@
       `???` stub, satisfied for real in Phase 3) [89c9e16]
 - [x] Task: Run tests, confirm green [89c9e16]
 
-## Phase 3: Postgres implementation
-- [ ] Task: Write failing `InventoryStorePostgresSuite` tests for `reserve`: success
+## Phase 3: Postgres implementation [checkpoint: a23db17]
+- [x] Task: Write failing `InventoryStorePostgresSuite` tests for `reserve`: success
       case, insufficient-stock case (no mutation), unknown-sku case, and a
       concurrent-reservations-don't-oversell case (fire concurrent `reserve` calls
       summing to more than available, assert total reserved never exceeds original
-      available)
-- [ ] Task: Implement `reserve` in `InventoryStore.postgres` using the single
+      available) [a23db17]
+- [x] Task: Implement `reserve` in `InventoryStore.postgres` using the single
       conditional `UPDATE ... WHERE sku = $sku AND quantity_available >= $qty
       RETURNING ...`; on 0 rows affected, follow up with a `SELECT` by sku to
-      distinguish not-found vs. insufficient-stock
-- [ ] Task: Run tests, confirm green
+      distinguish not-found vs. insufficient-stock [a23db17]
+- [x] Task: Run tests, confirm green [a23db17]
 
 ## Phase 4: HTTP endpoint
 - [ ] Task: Write failing `InventoryRoutesSuite` tests for `POST
