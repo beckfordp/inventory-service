@@ -1,0 +1,12 @@
+Phase 1 checkpoint: Schema (reserve-stock_20261001)
+
+Automated test command: sbt scalafmtCheck test
+Result: 53 passed, 0 failed, scalafmt clean.
+
+Manual verification steps run via script (/tmp scratchpad verify-phase1.sh):
+1. docker compose up -d (postgres)
+2. sbt run (applies V1 + V2 migrations, starts service on :8080)
+3. POST /inventorys {sku: sku-widget-1, quantityAvailable: 100} -> 201 Created
+4. POST /inventorys {sku: sku-widget-1, quantityAvailable: 50} (duplicate sku) -> 500 Internal server error (unique constraint violation surfaces as an unmapped 500 today - expected; typed 409 mapping is Phase 4's job for the reserve endpoint specifically, not create)
+
+User confirmation: approved via script-based verification (user asked for scripted verification instead of manual steps); result matched the proposed manual verification plan exactly.
