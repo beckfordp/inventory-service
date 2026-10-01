@@ -56,7 +56,7 @@ from there to review all track work as a whole.
       2-arg overload forwarding to `StockEventPublisher.noOp[F]`, so the ~20
       pre-existing tests that don't care about Kafka needed no changes. [abc2b7a]
 - [x] Task: Run tests, confirm green — 72 passed, 0 failed [abc2b7a]
-- [ ] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
-      code)
+- [x] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
+      code) — 89.61% statement / 86.89% branch overall [93b4fcf]
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Wire into the HTTP
       endpoint' (Protocol in workflow.md)
