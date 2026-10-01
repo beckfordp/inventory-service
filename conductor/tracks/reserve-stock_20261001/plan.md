@@ -38,7 +38,7 @@ track work as a whole.
       distinguish not-found vs. insufficient-stock [fb4f423]
 - [x] Task: Run tests, confirm green [fb4f423]
 
-## Phase 4: HTTP endpoint [checkpoint: pending]
+## Phase 4: HTTP endpoint [checkpoint: 4262b96]
 - [x] Task: Write failing `InventoryRoutesSuite` tests for `POST
       /inventorys/reservations`: 200 + `InventoryResponse` on success, 409 + error
       body on insufficient stock, 404 + error body on unknown sku [69a0e35]
@@ -53,5 +53,6 @@ track work as a whole.
 - [x] Task: Run tests, confirm green [69a0e35]
 - [x] Task: Verify coverage (`sbt coverage test coverageReport`, target >80% on new
       code) — 90.48% statement / 91.49% branch overall [69a0e35]
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: HTTP endpoint' (Protocol
-      in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: HTTP endpoint' (Protocol
+      in workflow.md) — via scripts/verify-reserve-stock.sh (prompting off), all
+      checks passed [4262b96]
