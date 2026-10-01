@@ -32,6 +32,7 @@ trait InventoryStore[F[_]] {
       quantityReserved: Int
   ): F[Option[Inventory]]
   def delete(id: String): F[Boolean]
+  def reserve(sku: String, quantity: Int): F[Either[InventoryError, Inventory]]
   def ping: F[Boolean]
 }
 
@@ -86,6 +87,28 @@ object InventoryStore {
             if (entities.contains(id)) (entities - id, true)
             else (entities, false)
           }
+
+        def reserve(
+            sku: String,
+            quantity: Int
+        ): F[Either[InventoryError, Inventory]] =
+          for {
+            now <- Sync[F].realTimeInstant
+            result <- ref.modify { entities =>
+              entities.values.find(_.sku == sku) match {
+                case None => (entities, Left(InventoryNotFound))
+                case Some(existing) if existing.quantityAvailable < quantity =>
+                  (entities, Left(InsufficientStock))
+                case Some(existing) =>
+                  val next = existing.copy(
+                    quantityAvailable = existing.quantityAvailable - quantity,
+                    quantityReserved = existing.quantityReserved + quantity,
+                    updatedAt = now
+                  )
+                  (entities + (next.id -> next), Right(next))
+              }
+            }
+          } yield result
 
         def ping: F[Boolean] = Sync[F].pure(true)
       }
@@ -293,6 +316,15 @@ object InventoryStore {
                       }
                     }
                 }
+
+              // Implemented in reserve-stock_20261001 Phase 3 (the atomic
+              // conditional UPDATE); the in-memory store's version lands
+              // first in Phase 2 so the domain/error-case work can be
+              // TDD'd independently of the Postgres query.
+              def reserve(
+                  sku: String,
+                  quantity: Int
+              ): F[Either[InventoryError, Inventory]] = ???
 
               def ping: F[Boolean] =
                 timed("ping") {

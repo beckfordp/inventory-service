@@ -28,6 +28,10 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       ): IO[Option[Inventory]] =
         IO.raiseError(error)
       def delete(id: String): IO[Boolean] = IO.raiseError(error)
+      def reserve(
+          sku: String,
+          quantity: Int
+      ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
     }
 
