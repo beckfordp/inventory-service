@@ -27,12 +27,15 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   (`UpdateInventoryRequest` takes both `quantityAvailable` and
   `quantityReserved`), same as `quantityAvailable`. Worth hardening later
   (same class of gap as order-service's `status`-as-String flag).
-- The generated endpoints are plain CRUD (create/get/update/delete via
-  `/inventorys`). They are **not** yet the dedicated "reserve stock"
-  operation US-4.1 calls for — an atomic
-  decrement-`quantityAvailable`/increment-`quantityReserved` check that can
-  fail (insufficient stock) and gets called synchronously by order-service.
-  That's still backlog work, not something codegen produced.
+- Beyond the generated CRUD (create/get/update/delete via `/inventorys`),
+  this service now also implements the dedicated "reserve stock" operation
+  US-4.1 calls for: `POST /inventorys/reservations` (`sku`, `quantity`) —
+  an atomic conditional `UPDATE` (decrement `quantityAvailable`, increment
+  `quantityReserved`, guarded by `quantity_available >= quantity`) that
+  fails with `409` (`InsufficientStock`) or `404` (unknown sku) rather than
+  overselling. Required a hand-written `UNIQUE (sku)` constraint (Flyway
+  `V2`), since the field-spec didn't make sku unique and reserving by sku
+  needs exactly one row per sku.
 
 ## User stories in scope (gluon/docs/user-stories.md)
 - US-4.1 — reserve-stock endpoint (sync, called by order-service)
