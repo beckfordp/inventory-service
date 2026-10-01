@@ -163,7 +163,9 @@ class InventoryStorePostgresSuite
     }
   }
 
-  test("delete removes the entity and returns true, and get then returns None") {
+  test(
+    "delete removes the entity and returns true, and get then returns None"
+  ) {
     withContainers { postgres =>
       val config = configFor(postgres)
       Migrations.run[IO](config) *> InventoryStore

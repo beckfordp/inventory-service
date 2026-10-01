@@ -35,7 +35,9 @@ class InventoryStoreSuite extends CatsEffectSuite {
     } yield assertNotEquals(first.id, second.id)
   }
 
-  test("update returns the updated entity with updatedAt not moving backwards") {
+  test(
+    "update returns the updated entity with updatedAt not moving backwards"
+  ) {
     for {
       store <- InventoryStore.inMemory[IO]
       created <- store.create("sku-widget-1", 100)
@@ -56,7 +58,9 @@ class InventoryStoreSuite extends CatsEffectSuite {
     } yield assertEquals(result, None)
   }
 
-  test("delete removes the entity and returns true, and get then returns None") {
+  test(
+    "delete removes the entity and returns true, and get then returns None"
+  ) {
     for {
       store <- InventoryStore.inMemory[IO]
       created <- store.create("sku-widget-1", 100)
@@ -73,5 +77,38 @@ class InventoryStoreSuite extends CatsEffectSuite {
       store <- InventoryStore.inMemory[IO]
       deleted <- store.delete("unknown-id")
     } yield assert(!deleted)
+  }
+
+  test(
+    "reserve decrements quantityAvailable and increments quantityReserved on success"
+  ) {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      _ <- store.create("sku-widget-1", 100)
+      result <- store.reserve("sku-widget-1", 30)
+    } yield result match {
+      case Right(entity) =>
+        assertEquals(entity.quantityAvailable, 70)
+        assertEquals(entity.quantityReserved, 30)
+      case Left(error) =>
+        fail(s"expected a successful reservation, got: $error")
+    }
+  }
+
+  test(
+    "reserve returns InsufficientStock when quantity exceeds quantityAvailable"
+  ) {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      _ <- store.create("sku-widget-1", 10)
+      result <- store.reserve("sku-widget-1", 20)
+    } yield assertEquals(result, Left(InsufficientStock))
+  }
+
+  test("reserve returns InventoryNotFound for an unknown sku") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      result <- store.reserve("unknown-sku", 10)
+    } yield assertEquals(result, Left(InventoryNotFound))
   }
 }

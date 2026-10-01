@@ -18,6 +18,11 @@ class HealthRoutesSuite extends CatsEffectSuite {
           quantityReserved: Int
       ): IO[Option[Inventory]] = IO.pure(None)
       def delete(id: String): IO[Boolean] = IO.pure(false)
+      def reserve(
+          sku: String,
+          quantity: Int
+      ): IO[Either[InventoryError, Inventory]] =
+        IO.raiseError(new NotImplementedError())
       def ping: IO[Boolean] = IO.pure(true)
     }
 
@@ -32,6 +37,11 @@ class HealthRoutesSuite extends CatsEffectSuite {
           quantityReserved: Int
       ): IO[Option[Inventory]] = IO.pure(None)
       def delete(id: String): IO[Boolean] = IO.pure(false)
+      def reserve(
+          sku: String,
+          quantity: Int
+      ): IO[Either[InventoryError, Inventory]] =
+        IO.raiseError(new NotImplementedError())
       def ping: IO[Boolean] = IO.pure(false)
     }
 
