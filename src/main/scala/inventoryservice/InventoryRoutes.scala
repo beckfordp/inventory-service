@@ -289,9 +289,55 @@ object InventoryRoutes {
       } yield result
     }
 
+  /** Publishes the Kafka event for a reserve outcome, swallowing (but logging)
+    * a publish failure/timeout — the sync HTTP response is already determined
+    * by `store.reserve`'s result and must never change because Kafka is slow or
+    * down.
+    */
+  private def publishOutcome[F[_]: Async](
+      publisher: StockEventPublisher[F],
+      logger: StructuredLogger[F],
+      sku: String,
+      quantity: Int,
+      result: Either[InventoryError, Inventory]
+  ): F[Unit] =
+    result match {
+      case Right(_) =>
+        for {
+          now <- Async[F].realTimeInstant
+          _ <- publisher
+            .publishReserved(StockReservedEvent(sku, quantity, now))
+            .attempt
+            .flatMap {
+              case Right(_)    => Async[F].unit
+              case Left(error) =>
+                logger.error(Map("sku" -> sku), error)(
+                  "Failed to publish inventory.stock-reserved"
+                )
+            }
+        } yield ()
+      case Left(InsufficientStock) =>
+        for {
+          now <- Async[F].realTimeInstant
+          _ <- publisher
+            .publishFailed(StockReservationFailedEvent(sku, quantity, now))
+            .attempt
+            .flatMap {
+              case Right(_)    => Async[F].unit
+              case Left(error) =>
+                logger.error(Map("sku" -> sku), error)(
+                  "Failed to publish inventory.stock-reservation-failed"
+                )
+            }
+        } yield ()
+      case Left(InventoryNotFound) | Left(InvalidQuantity) =>
+        Async[F].unit
+    }
+
   def reserveInventoryServerEndpoint[F[_]: Async](
       store: InventoryStore[F],
-      logger: StructuredLogger[F]
+      logger: StructuredLogger[F],
+      publisher: StockEventPublisher[F]
   ): ServerEndpoint[Any, F] =
     reserveInventoryEndpoint.serverLogic[F] { req =>
       for {
@@ -302,7 +348,15 @@ object InventoryRoutes {
             "sku" -> req.sku
           )
         )("Received request")
-        result <- store.reserve(req.sku, req.quantity).flatMap {
+        reserveResult <- store.reserve(req.sku, req.quantity)
+        _ <- publishOutcome(
+          publisher,
+          logger,
+          req.sku,
+          req.quantity,
+          reserveResult
+        )
+        result <- reserveResult match {
           case Right(entity) =>
             logger
               .info(Map("inventory_id" -> entity.id))("Request completed")
@@ -321,6 +375,13 @@ object InventoryRoutes {
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): HttpRoutes[F] =
+    routes(store, logger, StockEventPublisher.noOp[F])
+
+  def routes[F[_]: Async](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F],
+      publisher: StockEventPublisher[F]
+  ): HttpRoutes[F] =
     Http4sServerInterpreter[F]().toRoutes(
       List(
         serverEndpoint(store, logger),
@@ -328,7 +389,7 @@ object InventoryRoutes {
         updateInventoryServerEndpoint(store, logger),
         replaceInventoryServerEndpoint(store, logger),
         deleteInventoryServerEndpoint(store, logger),
-        reserveInventoryServerEndpoint(store, logger)
+        reserveInventoryServerEndpoint(store, logger, publisher)
       )
     )
 }
