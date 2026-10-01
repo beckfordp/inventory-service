@@ -4,7 +4,7 @@ Plan approved at commit: 45f60af (`chore(conductor): archive track 'US-4.1:
 reserve-stock endpoint'`) — every commit below is in addition to that baseline; diff
 from there to review all track work as a whole.
 
-## Phase 1: Tech stack & infra [checkpoint: pending]
+## Phase 1: Tech stack & infra [checkpoint: bcc5b9c]
 - [x] Task: Update `tech-stack.md` documenting fs2-kafka + testcontainers-scala-kafka
       as new dependencies (workflow.md requires this before implementation)
       [7793b7f]
@@ -14,8 +14,9 @@ from there to review all track work as a whole.
       `apache/kafka:3.8.0` in KRaft mode (no separate Zookeeper container), verified
       it starts healthy via `docker compose up -d kafka` [7793b7f]
 - [x] Task: `sbt compile` confirms the new dependencies resolve cleanly [7793b7f]
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Tech stack & infra'
-      (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Tech stack & infra'
+      (Protocol in workflow.md) — `docker compose up -d` brings up postgres+kafka
+      together, both healthy, clean teardown [bcc5b9c]
 
 ## Phase 2: Event payload + publisher
 - [ ] Task: Write a failing integration test (Testcontainers Kafka) asserting a
