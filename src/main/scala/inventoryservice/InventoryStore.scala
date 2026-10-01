@@ -92,23 +92,26 @@ object InventoryStore {
             sku: String,
             quantity: Int
         ): F[Either[InventoryError, Inventory]] =
-          for {
-            now <- Sync[F].realTimeInstant
-            result <- ref.modify { entities =>
-              entities.values.find(_.sku == sku) match {
-                case None => (entities, Left(InventoryNotFound))
-                case Some(existing) if existing.quantityAvailable < quantity =>
-                  (entities, Left(InsufficientStock))
-                case Some(existing) =>
-                  val next = existing.copy(
-                    quantityAvailable = existing.quantityAvailable - quantity,
-                    quantityReserved = existing.quantityReserved + quantity,
-                    updatedAt = now
-                  )
-                  (entities + (next.id -> next), Right(next))
+          if (quantity <= 0) Sync[F].pure(Left(InvalidQuantity))
+          else
+            for {
+              now <- Sync[F].realTimeInstant
+              result <- ref.modify { entities =>
+                entities.values.find(_.sku == sku) match {
+                  case None => (entities, Left(InventoryNotFound))
+                  case Some(existing)
+                      if existing.quantityAvailable < quantity =>
+                    (entities, Left(InsufficientStock))
+                  case Some(existing) =>
+                    val next = existing.copy(
+                      quantityAvailable = existing.quantityAvailable - quantity,
+                      quantityReserved = existing.quantityReserved + quantity,
+                      updatedAt = now
+                    )
+                    (entities + (next.id -> next), Right(next))
+                }
               }
-            }
-          } yield result
+            } yield result
 
         def ping: F[Boolean] = Sync[F].pure(true)
       }
@@ -347,44 +350,49 @@ object InventoryStore {
                   sku: String,
                   quantity: Int
               ): F[Either[InventoryError, Inventory]] =
-                timed("reserve") {
-                  pool.use { session =>
-                    session
-                      .prepare(reserveInventory)
-                      .flatMap(
-                        _.option((quantity, quantity, sku, quantity))
-                      )
-                      .flatMap {
-                        case Some(
-                              (
-                                id,
+                if (quantity <= 0)
+                  (Left(
+                    InvalidQuantity
+                  ): Either[InventoryError, Inventory]).pure[F]
+                else
+                  timed("reserve") {
+                    pool.use { session =>
+                      session
+                        .prepare(reserveInventory)
+                        .flatMap(
+                          _.option((quantity, quantity, sku, quantity))
+                        )
+                        .flatMap {
+                          case Some(
+                                (
+                                  id,
+                                  quantityAvailable,
+                                  quantityReserved,
+                                  createdAt,
+                                  updatedAt
+                                )
+                              ) =>
+                            (Right(
+                              Inventory(
+                                id.toString,
+                                sku,
                                 quantityAvailable,
                                 quantityReserved,
-                                createdAt,
-                                updatedAt
+                                createdAt.toInstant,
+                                updatedAt.toInstant
                               )
-                            ) =>
-                          (Right(
-                            Inventory(
-                              id.toString,
-                              sku,
-                              quantityAvailable,
-                              quantityReserved,
-                              createdAt.toInstant,
-                              updatedAt.toInstant
-                            )
-                          ): Either[InventoryError, Inventory]).pure[F]
-                        case None =>
-                          session
-                            .prepare(selectIdBySku)
-                            .flatMap(_.option(sku))
-                            .map {
-                              case Some(_) => Left(InsufficientStock)
-                              case None    => Left(InventoryNotFound)
-                            }
-                      }
+                            ): Either[InventoryError, Inventory]).pure[F]
+                          case None =>
+                            session
+                              .prepare(selectIdBySku)
+                              .flatMap(_.option(sku))
+                              .map {
+                                case Some(_) => Left(InsufficientStock)
+                                case None    => Left(InventoryNotFound)
+                              }
+                        }
+                    }
                   }
-                }
 
               def ping: F[Boolean] =
                 timed("ping") {
