@@ -2,9 +2,6 @@
 
 This file tracks all major tracks for the project.
 
-- [x] **Track: US-4.1: reserve-stock endpoint (sync, called by order-service)**
-  *Link: [./tracks/reserve-stock_20261001/](./tracks/reserve-stock_20261001/)*
-
 ---
 
 ## Backlog
