@@ -1,5 +1,9 @@
 # Plan — reserve-stock_20261001
 
+Plan approved at commit: 8fb23f8 (`chore(inventory-service): add reserve-stock track`)
+— every commit below is in addition to that baseline; diff from there to review all
+track work as a whole.
+
 ## Phase 1: Schema — unique constraint on sku [checkpoint: c5ddc06]
 - [x] Task: Write failing test asserting a duplicate-sku insert violates a unique
       constraint (new test in `InventoryStorePostgresSuite.scala` or a dedicated
