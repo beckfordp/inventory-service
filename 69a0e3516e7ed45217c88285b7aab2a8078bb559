@@ -1,0 +1,10 @@
+Task: Phase 4 (HTTP endpoint), reserve-stock_20261001
+
+Summary: Added POST /inventorys/reservations endpoint. New ReserveInventoryRequest(sku, quantity) DTO. New reserveErrorOutput uses tapir's oneOf/oneOfVariantValueMatcher to map InventoryNotFound->404 (reusing the existing JSON error shape) and InsufficientStock->409, since this endpoint's error type now has two live cases (earlier endpoints only ever produced InventoryNotFound, so could map directly without oneOf). reserveInventoryServerEndpoint logs received/completed/failed the same way the other endpoints do, delegating to InventoryStore.reserve. Wired into InventoryRoutes.routes and Main's docsRoutes list (so it shows up in /docs Swagger UI too).
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryRoutes.scala (DTO, error output, endpoint, server endpoint, routes wiring)
+- src/main/scala/inventoryservice/Main.scala (docsRoutes wiring)
+- src/test/scala/inventoryservice/InventoryRoutesSuite.scala (3 new tests: success, insufficient-stock 409, unknown-sku 404)
+
+Why: completes US-4.1 - this is the actual HTTP surface order-service will call synchronously during checkout.
