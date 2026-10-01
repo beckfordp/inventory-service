@@ -4,13 +4,16 @@ Plan approved at commit: 45f60af (`chore(conductor): archive track 'US-4.1:
 reserve-stock endpoint'`) — every commit below is in addition to that baseline; diff
 from there to review all track work as a whole.
 
-## Phase 1: Tech stack & infra
-- [ ] Task: Update `tech-stack.md` documenting fs2-kafka + testcontainers-scala-kafka
+## Phase 1: Tech stack & infra [checkpoint: pending]
+- [x] Task: Update `tech-stack.md` documenting fs2-kafka + testcontainers-scala-kafka
       as new dependencies (workflow.md requires this before implementation)
-- [ ] Task: Add `fs2-kafka`, `testcontainers-scala-kafka` to `build.sbt`
-- [ ] Task: Add a `kafka` service (single-broker, e.g. `confluentinc/cp-kafka` or
-      `apache/kafka` image) to `docker-compose.yml` for local dev
-- [ ] Task: `sbt compile` confirms the new dependencies resolve cleanly
+      [7793b7f]
+- [x] Task: Add `fs2-kafka`, `testcontainers-scala-kafka` to `build.sbt` [7793b7f]
+- [x] Task: Add a `kafka` service (single-broker, e.g. `confluentinc/cp-kafka` or
+      `apache/kafka` image) to `docker-compose.yml` for local dev — used
+      `apache/kafka:3.8.0` in KRaft mode (no separate Zookeeper container), verified
+      it starts healthy via `docker compose up -d kafka` [7793b7f]
+- [x] Task: `sbt compile` confirms the new dependencies resolve cleanly [7793b7f]
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Tech stack & infra'
       (Protocol in workflow.md)
 
