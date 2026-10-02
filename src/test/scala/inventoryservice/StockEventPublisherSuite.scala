@@ -45,6 +45,7 @@ class StockEventPublisherSuite
     withContainers { kafka =>
       val config = configFor(kafka)
       val event = StockReservedEvent(
+        orderItemId = "item-1",
         sku = "sku-widget-1",
         quantity = 30,
         timestamp = Instant.parse("2026-01-01T00:00:00Z")
@@ -66,6 +67,7 @@ class StockEventPublisherSuite
     withContainers { kafka =>
       val config = configFor(kafka)
       val event = StockReservationFailedEvent(
+        orderItemId = "item-1",
         sku = "sku-widget-1",
         quantity = 80,
         timestamp = Instant.parse("2026-01-01T00:00:00Z")
