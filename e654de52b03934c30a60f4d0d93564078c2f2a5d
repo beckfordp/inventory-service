@@ -1,0 +1,9 @@
+Task: Add orderItemId to ReserveInventoryRequest, StockReservedEvent, StockReservationFailedEvent
+
+Summary: ReserveInventoryRequest gains a required orderItemId: String field. publishOutcome and reserveInventoryServerEndpoint thread req.orderItemId through into both StockReservedEvent and StockReservationFailedEvent constructors. No change to InventoryStore or DB schema - pure pass-through per spec.md.
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryRoutes.scala
+- src/main/scala/inventoryservice/StockEvents.scala
+
+Why: fixes the cross-order misattribution risk found while designing order-service's US-5.2 consumer - sku-only correlation couldn't disambiguate concurrent orders (or line items) reserving the same sku. orderItemId is order-service's own order_items.id, opaque to inventory-service.
