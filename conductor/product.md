@@ -29,7 +29,10 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   (same class of gap as order-service's `status`-as-String flag).
 - Beyond the generated CRUD (create/get/update/delete via `/inventorys`),
   this service now also implements the dedicated "reserve stock" operation
-  US-4.1 calls for: `POST /inventorys/reservations` (`sku`, `quantity`) —
+  US-4.1 calls for: `POST /inventorys/reservations` (`sku`, `quantity`,
+  `orderItemId` — opaque string, order-service's own `order_items.id`,
+  echoed verbatim on the resulting Kafka event so the consumer can
+  correlate without guessing sku-only matches across concurrent orders) —
   an atomic conditional `UPDATE` (decrement `quantityAvailable`, increment
   `quantityReserved`, guarded by `quantity_available >= quantity`) that
   fails with `409` (`InsufficientStock`) or `404` (unknown sku) rather than
