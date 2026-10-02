@@ -1,0 +1,5 @@
+Final verification report: add orderItemId correlation id to stock-reservation REST/Kafka contract
+
+Automated tests: sbt scalafmtCheck test -> 73/73 passed, formatting clean.
+
+Manual verification: ran scripts/verify-orderitemid-correlation.sh against real Postgres + Kafka + a live sbt run instance (not stubs). Confirmed: (1) a successful reservation's orderItemId is echoed verbatim on the real inventory.stock-reserved Kafka message, (2) a failed (insufficient stock) reservation's orderItemId is echoed verbatim on inventory.stock-reservation-failed, (3) a request omitting orderItemId is rejected with 400 before anything is published. All checks passed.
