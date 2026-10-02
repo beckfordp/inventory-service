@@ -489,7 +489,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       created <- postResponse.as[InventoryResponse]
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 30))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 30, "item-1"))
       )
       reserved <- reserveResponse.as[InventoryResponse]
     } yield {
@@ -513,7 +513,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 20))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 20, "item-1"))
       )
       body <- reserveResponse.as[io.circe.Json]
     } yield {
@@ -533,7 +533,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("unknown-sku", 10))
+          .withEntity(ReserveInventoryRequest("unknown-sku", 10, "item-1"))
       )
       body <- reserveResponse.as[io.circe.Json]
     } yield {
@@ -558,7 +558,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 0))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 0, "item-1"))
       )
       body <- reserveResponse.as[io.circe.Json]
     } yield {
@@ -567,6 +567,31 @@ class InventoryRoutesSuite extends CatsEffectSuite {
         body.asObject.exists(_.contains("error")),
         s"expected a JSON error body, got: $body"
       )
+    }
+  }
+
+  test(
+    "POST /inventorys/reservations returns 400 when orderItemId is missing"
+  ) {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-1", 100)
+        )
+      )
+      reserveResponse <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys/reservations")
+          .withEntity(
+            io.circe.Json.obj(
+              "sku" -> io.circe.Json.fromString("sku-widget-1"),
+              "quantity" -> io.circe.Json.fromInt(30)
+            )
+          )
+      )
+    } yield {
+      assertEquals(reserveResponse.status, Status.BadRequest)
     }
   }
 
@@ -585,15 +610,15 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 30))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 30, "item-1"))
       )
       reserved <- reservedEvents
       failed <- failedEvents
     } yield {
       assertEquals(reserveResponse.status, Status.Ok)
       assertEquals(
-        reserved.map(e => (e.sku, e.quantity)),
-        List(("sku-widget-1", 30))
+        reserved.map(e => (e.orderItemId, e.sku, e.quantity)),
+        List(("item-1", "sku-widget-1", 30))
       )
       assertEquals(failed, Nil)
     }
@@ -614,7 +639,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
       reserveResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 20))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 20, "item-1"))
       )
       reserved <- reservedEvents
       failed <- failedEvents
@@ -622,8 +647,8 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       assertEquals(reserveResponse.status, Status.Conflict)
       assertEquals(reserved, Nil)
       assertEquals(
-        failed.map(e => (e.sku, e.quantity)),
-        List(("sku-widget-1", 20))
+        failed.map(e => (e.orderItemId, e.sku, e.quantity)),
+        List(("item-1", "sku-widget-1", 20))
       )
     }
   }
@@ -643,11 +668,11 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
       notFoundResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("unknown-sku", 10))
+          .withEntity(ReserveInventoryRequest("unknown-sku", 10, "item-1"))
       )
       invalidQuantityResponse <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 0))
+          .withEntity(ReserveInventoryRequest("sku-widget-1", 0, "item-1"))
       )
       reserved <- reservedEvents
       failed <- failedEvents
