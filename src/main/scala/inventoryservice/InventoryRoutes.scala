@@ -28,7 +28,11 @@ object UpdateInventoryRequest {
   implicit val codec: Codec[UpdateInventoryRequest] = deriveCodec
 }
 
-final case class ReserveInventoryRequest(sku: String, quantity: Int)
+final case class ReserveInventoryRequest(
+    sku: String,
+    quantity: Int,
+    orderItemId: String
+)
 
 object ReserveInventoryRequest {
   implicit val codec: Codec[ReserveInventoryRequest] = deriveCodec
@@ -299,6 +303,7 @@ object InventoryRoutes {
       logger: StructuredLogger[F],
       sku: String,
       quantity: Int,
+      orderItemId: String,
       result: Either[InventoryError, Inventory]
   ): F[Unit] =
     result match {
@@ -306,7 +311,9 @@ object InventoryRoutes {
         for {
           now <- Async[F].realTimeInstant
           _ <- publisher
-            .publishReserved(StockReservedEvent(sku, quantity, now))
+            .publishReserved(
+              StockReservedEvent(orderItemId, sku, quantity, now)
+            )
             .attempt
             .flatMap {
               case Right(_)    => Async[F].unit
@@ -320,7 +327,9 @@ object InventoryRoutes {
         for {
           now <- Async[F].realTimeInstant
           _ <- publisher
-            .publishFailed(StockReservationFailedEvent(sku, quantity, now))
+            .publishFailed(
+              StockReservationFailedEvent(orderItemId, sku, quantity, now)
+            )
             .attempt
             .flatMap {
               case Right(_)    => Async[F].unit
@@ -354,6 +363,7 @@ object InventoryRoutes {
           logger,
           req.sku,
           req.quantity,
+          req.orderItemId,
           reserveResult
         )
         result <- reserveResult match {

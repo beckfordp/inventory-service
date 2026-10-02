@@ -7,12 +7,17 @@ import java.time.Instant
 
 /** Payload shape pinned in `gluon/docs/system-design.md`'s "Payload contracts"
   * section - that cross-repo doc, not this case class, is the source of truth
-  * order-service's future consumer (US-5.2) should read. Correlation is by
-  * `sku`, not an inventory-record id: order-service (the consumer) never has
-  * inventory-service's internal id to correlate against, only the sku it asked
-  * to reserve.
+  * order-service's consumer (US-5.2) should read. Correlation is by
+  * `orderItemId` - order-service's own `order_items.id`, echoed verbatim from
+  * the `POST /inventorys/reservations` request. Opaque to inventory-service; no
+  * order-domain coupling implied. (An earlier draft correlated by `sku` alone,
+  * dropped once it became clear that couldn't disambiguate concurrent orders -
+  * or line items - reserving the same sku. A draft before that used
+  * inventory-service's own internal id, dropped since the failure path has no
+  * `Inventory` record to pull one from.)
   */
 final case class StockReservedEvent(
+    orderItemId: String,
     sku: String,
     quantity: Int,
     timestamp: Instant
@@ -23,6 +28,7 @@ object StockReservedEvent {
 }
 
 final case class StockReservationFailedEvent(
+    orderItemId: String,
     sku: String,
     quantity: Int,
     timestamp: Instant
