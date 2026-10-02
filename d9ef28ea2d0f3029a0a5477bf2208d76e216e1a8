@@ -1,0 +1,9 @@
+Task: Update existing call sites + add correlation assertions
+
+Summary: patched all 8 existing ReserveInventoryRequest construction sites (now require orderItemId), both StockReservedEvent/StockReservationFailedEvent constructions in StockEventPublisherSuite. Extended the two event-recording tests to assert the published event's orderItemId matches the request. Added a new test asserting 400 when orderItemId is omitted from the raw JSON body (constructed via io.circe.Json directly, since the case class itself can't express a missing required field).
+
+Files changed:
+- src/test/scala/inventoryservice/InventoryRoutesSuite.scala
+- src/test/scala/inventoryservice/StockEventPublisherSuite.scala
+
+Result: sbt scalafmtCheck test -> 73/73 passed.
