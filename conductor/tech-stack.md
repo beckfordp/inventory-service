@@ -8,6 +8,11 @@
 - Cats Effect 3.7.0
 - http4s 0.23.37 (ember-server)
 - circe 0.14.16
+- CORS — `org.http4s.server.middleware.CORS` (ships in `http4s-server`, no new
+  dependency) wraps every response (`Cors.scala`). Allow all origins, methods
+  limited to this service's five CRUD routes, `Content-Type` header allowed,
+  credentials disallowed. Ported from `pure-service-generator`'s
+  `cors_20261010` track (TD-1.3).
 
 ## API layer
 - tapir 1.11.25 — route definitions and generated Swagger/OpenAPI docs
