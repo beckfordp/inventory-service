@@ -2,8 +2,8 @@
 
 This file tracks all major tracks for the project.
 
-- [x] **Track: add orderItemId correlation id to stock-reservation REST/Kafka contract**
-  *Link: [./tracks/stock-event-correlation_20261002/](./tracks/stock-event-correlation_20261002/)*
+- [x] **Track: add GET /inventorys list/filter-by-sku endpoint**
+  *Link: [./tracks/list-inventory-endpoint_20261010/](./tracks/list-inventory-endpoint_20261010/)*
 
 ---
 

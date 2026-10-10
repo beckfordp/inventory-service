@@ -1,0 +1,8 @@
+{
+  "track_id": "list-inventory-endpoint_20261010",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-10T00:00:00Z",
+  "updated_at": "2026-10-10T00:00:00Z",
+  "description": "add GET /inventorys list/filter-by-sku endpoint, needed by gshop's admin-screen_20261010 track for its inventory-management admin screen"
+}
