@@ -32,6 +32,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
           sku: String,
           quantity: Int
       ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
+      def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
     }
 
@@ -681,6 +682,116 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       assertEquals(invalidQuantityResponse.status, Status.BadRequest)
       assertEquals(reserved, Nil)
       assertEquals(failed, Nil)
+    }
+  }
+
+  test("GET /inventorys returns 200 with all entities when no sku filter is given") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-1", 100)
+        )
+      )
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-2", 50)
+        )
+      )
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys")
+      )
+      entities <- response.as[List[InventoryResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(entities.map(_.sku).toSet, Set("sku-widget-1", "sku-widget-2"))
+    }
+  }
+
+  test("GET /inventorys returns an empty list when no entities exist") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys")
+      )
+      entities <- response.as[List[InventoryResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(entities, Nil)
+    }
+  }
+
+  test("GET /inventorys?sku=... returns 200 with just the matching entity") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-1", 100)
+        )
+      )
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-2", 50)
+        )
+      )
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys?sku=sku-widget-1")
+      )
+      entities <- response.as[List[InventoryResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(entities.map(_.sku), List("sku-widget-1"))
+    }
+  }
+
+  test("GET /inventorys?sku=... returns an empty list when nothing matches") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys?sku=unknown-sku")
+      )
+      entities <- response.as[List[InventoryResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(entities, Nil)
+    }
+  }
+
+  test(
+    "GET /inventorys logs a received-request line and a completed line with structured context"
+  ) {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      testLogger = StructuredTestingLogger.impl[IO]()
+      routes = InventoryRoutes.routes[IO](store, testLogger)
+      _ <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys").withEntity(
+          CreateInventoryRequest("sku-widget-1", 100)
+        )
+      )
+      _ <- testLogger.logged // drain POST's own log lines before the GET
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys")
+      )
+      logged <- testLogger.logged
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      val infos = logged.collect { case m: INFO => m }
+      assert(
+        infos.exists(m =>
+          m.message.toLowerCase.contains("received") &&
+            m.ctx.get("method").contains("GET")
+        ),
+        s"expected a received-request INFO line with method context, got: $infos"
+      )
+      assert(
+        infos.exists(m => m.message.toLowerCase.contains("completed")),
+        s"expected a completed INFO line, got: $infos"
+      )
     }
   }
 

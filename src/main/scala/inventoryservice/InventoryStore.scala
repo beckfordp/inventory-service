@@ -33,6 +33,7 @@ trait InventoryStore[F[_]] {
   ): F[Option[Inventory]]
   def delete(id: String): F[Boolean]
   def reserve(sku: String, quantity: Int): F[Either[InventoryError, Inventory]]
+  def list(sku: Option[String]): F[List[Inventory]]
   def ping: F[Boolean]
 }
 
@@ -113,6 +114,14 @@ object InventoryStore {
               }
             } yield result
 
+        def list(sku: Option[String]): F[List[Inventory]] =
+          ref.get.map { entities =>
+            sku match {
+              case None         => entities.values.toList
+              case Some(filter) => entities.values.filter(_.sku == filter).toList
+            }
+          }
+
         def ping: F[Boolean] = Sync[F].pure(true)
       }
     }
@@ -173,6 +182,25 @@ object InventoryStore {
       WHERE sku = $text AND quantity_available >= $int4
       RETURNING id, quantity_available, quantity_reserved, created_at, updated_at
     """.query(uuid *: int4 *: int4 *: timestamptz *: timestamptz)
+
+  private val selectAllInventory: skunk.Query[
+    skunk.Void,
+    (UUID, String, Int, Int, OffsetDateTime, OffsetDateTime)
+  ] =
+    sql"""
+      SELECT id, sku, quantity_available, quantity_reserved, created_at, updated_at
+      FROM "inventory"
+    """.query(uuid *: text *: int4 *: int4 *: timestamptz *: timestamptz)
+
+  private val selectInventoryBySku: skunk.Query[
+    String,
+    (UUID, String, Int, Int, OffsetDateTime, OffsetDateTime)
+  ] =
+    sql"""
+      SELECT id, sku, quantity_available, quantity_reserved, created_at, updated_at
+      FROM "inventory"
+      WHERE sku = $text
+    """.query(uuid *: text *: int4 *: int4 *: timestamptz *: timestamptz)
 
   private val selectIdBySku: skunk.Query[String, UUID] =
     sql"""
@@ -393,6 +421,39 @@ object InventoryStore {
                         }
                     }
                   }
+
+              def list(sku: Option[String]): F[List[Inventory]] =
+                timed("list") {
+                  pool.use { session =>
+                    sku match {
+                      case None =>
+                        session
+                          .prepare(selectAllInventory)
+                          .flatMap(_.stream(skunk.Void, 64).compile.toList)
+                      case Some(filter) =>
+                        session
+                          .prepare(selectInventoryBySku)
+                          .flatMap(_.stream(filter, 64).compile.toList)
+                    }
+                  }
+                }.map(_.map {
+                  case (
+                        id,
+                        sku,
+                        quantityAvailable,
+                        quantityReserved,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Inventory(
+                      id.toString,
+                      sku,
+                      quantityAvailable,
+                      quantityReserved,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                })
 
               def ping: F[Boolean] =
                 timed("ping") {

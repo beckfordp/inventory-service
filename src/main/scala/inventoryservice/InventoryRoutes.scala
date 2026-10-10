@@ -130,6 +130,17 @@ object InventoryRoutes {
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
 
+  private val listInventoryEndpoint: PublicEndpoint[
+    Option[String],
+    Unit,
+    List[InventoryResponse],
+    Any
+  ] =
+    endpoint.get
+      .in("inventorys")
+      .in(query[Option[String]]("sku"))
+      .out(jsonBody[List[InventoryResponse]])
+
   private val reserveErrorOutput: EndpointOutput[InventoryError] =
     oneOf[InventoryError](
       oneOfVariantValueMatcher(
@@ -381,6 +392,25 @@ object InventoryRoutes {
       } yield result
     }
 
+  def listInventoryServerEndpoint[F[_]: Async](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): ServerEndpoint[Any, F] =
+    listInventoryEndpoint.serverLogicSuccess[F] { skuFilter =>
+      for {
+        _ <- logger.info(
+          Map(
+            "method" -> "GET",
+            "path" -> "/inventorys"
+          ) ++ skuFilter.map("sku" -> _)
+        )("Received request")
+        entities <- store.list(skuFilter)
+        _ <- logger.info(
+          Map("count" -> entities.size.toString)
+        )("Request completed")
+      } yield entities.map(InventoryResponse.apply)
+    }
+
   def routes[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
@@ -399,7 +429,8 @@ object InventoryRoutes {
         updateInventoryServerEndpoint(store, logger),
         replaceInventoryServerEndpoint(store, logger),
         deleteInventoryServerEndpoint(store, logger),
-        reserveInventoryServerEndpoint(store, logger, publisher)
+        reserveInventoryServerEndpoint(store, logger, publisher),
+        listInventoryServerEndpoint(store, logger)
       )
     )
 }

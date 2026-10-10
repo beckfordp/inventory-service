@@ -23,6 +23,7 @@ class HealthRoutesSuite extends CatsEffectSuite {
           quantity: Int
       ): IO[Either[InventoryError, Inventory]] =
         IO.raiseError(new NotImplementedError())
+      def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def ping: IO[Boolean] = IO.pure(true)
     }
 
@@ -42,6 +43,7 @@ class HealthRoutesSuite extends CatsEffectSuite {
           quantity: Int
       ): IO[Either[InventoryError, Inventory]] =
         IO.raiseError(new NotImplementedError())
+      def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def ping: IO[Boolean] = IO.pure(false)
     }
 

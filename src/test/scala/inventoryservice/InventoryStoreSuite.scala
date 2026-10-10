@@ -132,4 +132,37 @@ class InventoryStoreSuite extends CatsEffectSuite {
       after <- store.get(created.id)
     } yield assertEquals(after, Some(created))
   }
+
+  test("list with no filter returns every created entity") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      first <- store.create("sku-widget-1", 100)
+      second <- store.create("sku-widget-2", 50)
+      found <- store.list(None)
+    } yield assertEquals(found.toSet, Set(first, second))
+  }
+
+  test("list with no entities returns an empty list") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      found <- store.list(None)
+    } yield assertEquals(found, Nil)
+  }
+
+  test("list with a sku filter returns only the matching entity") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      widget <- store.create("sku-widget-1", 100)
+      _ <- store.create("sku-widget-2", 50)
+      found <- store.list(Some("sku-widget-1"))
+    } yield assertEquals(found, List(widget))
+  }
+
+  test("list with a sku filter returns an empty list when nothing matches") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      _ <- store.create("sku-widget-1", 100)
+      found <- store.list(Some("sku-unknown"))
+    } yield assertEquals(found, Nil)
+  }
 }

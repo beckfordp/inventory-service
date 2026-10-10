@@ -53,6 +53,8 @@ object Main extends IOApp.Simple {
                             logger,
                             publisher
                           ),
+                          InventoryRoutes
+                            .listInventoryServerEndpoint[IO](store, logger),
                           HealthRoutes.healthServerEndpoint[IO],
                           HealthRoutes.readyServerEndpoint[IO](store)
                         )

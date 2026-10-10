@@ -424,6 +424,54 @@ class InventoryStorePostgresSuite
     }
   }
 
+  test("list with no filter returns every created entity") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            first <- store.create(uniqueSku(), 100)
+            second <- store.create(uniqueSku(), 50)
+            found <- store.list(None)
+          } yield {
+            val foundIds = found.map(_.id).toSet
+            assert(
+              foundIds.contains(first.id) && foundIds.contains(second.id),
+              s"expected both created entities in the list, got: $found"
+            )
+          }
+        }
+    }
+  }
+
+  test("list with a sku filter returns only the matching entity") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            created <- store.create(sku, 100)
+            _ <- store.create(uniqueSku(), 50)
+            found <- store.list(Some(sku))
+          } yield assertEquals(found, List(created))
+        }
+    }
+  }
+
+  test("list with a sku filter returns an empty list when nothing matches") {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          store.list(Some(uniqueSku())).map(assertEquals(_, Nil))
+        }
+    }
+  }
+
   test(
     "concurrent reservations against the same sku never collectively oversell"
   ) {
