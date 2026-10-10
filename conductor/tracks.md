@@ -2,9 +2,6 @@
 
 This file tracks all major tracks for the project.
 
-- [x] **Track: add GET /inventorys list/filter-by-sku endpoint**
-  *Link: [./tracks/list-inventory-endpoint_20261010/](./tracks/list-inventory-endpoint_20261010/)*
-
 ---
 
 ## Backlog
