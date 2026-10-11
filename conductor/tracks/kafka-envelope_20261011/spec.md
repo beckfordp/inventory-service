@@ -31,11 +31,11 @@ lockstep in its own repo/track.
   forces.
 
 # Acceptance Criteria
-- [ ] `StockEventPublisherSuite` (real Testcontainers Kafka) confirms both
+- [x] `StockEventPublisherSuite` (real Testcontainers Kafka) confirms both
   `publishReserved`/`publishFailed` land on `inventory-events`, decode as
   a valid `EventEnvelope`, with the right `eventType`/`source`/
   `correlationId`, and `payload` decodes to the original event shape.
-- [ ] Full `sbt test` suite stays green.
+- [x] Full `sbt test` suite stays green (88/88).
 
 # Out of Scope
 - Passing `orderId` through `POST /inventorys/reservations` to unify

@@ -52,7 +52,10 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   not that order-service reacts to it
 
 ## Events
-- Publishes: `inventory.stock-reserved`, `inventory.stock-reservation-failed`
+- Publishes: `inventory-events` (eventType `StockReserved` /
+  `StockReservationFailed`, wrapped in the shared envelope — one topic per
+  domain, ADR 0009, migrated 2026-10-11, `kafka-envelope_20261011`;
+  previously two per-event-type topics)
 - Consumes: none
 
 ## Out of scope for this service
