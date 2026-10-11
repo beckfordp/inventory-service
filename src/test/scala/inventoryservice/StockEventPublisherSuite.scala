@@ -20,7 +20,16 @@ class StockEventPublisherSuite
   private def configFor(kafka: KafkaContainer): KafkaConfig =
     KafkaConfig(bootstrapServers = kafka.bootstrapServers)
 
-  private def consumeOne(config: KafkaConfig, topic: String): IO[String] = {
+  /** All tests now share one `inventory-events` topic (ADR 0009), so a fresh
+    * "earliest" consumer can see another test's leftover message first — filter
+    * for the envelope matching this test's own `correlationId` rather than just
+    * taking the first record.
+    */
+  private def consumeEnvelope(
+      config: KafkaConfig,
+      topic: String,
+      correlationId: String
+  ): IO[String] = {
     val consumerSettings =
       ConsumerSettings[IO, String, String]
         .withBootstrapServers(config.bootstrapServers)
@@ -31,21 +40,27 @@ class StockEventPublisherSuite
       for {
         _ <- consumer.subscribeTo(topic)
         record <- consumer.stream
+          .map(_.record.value)
+          .filter(raw =>
+            decode[EventEnvelope](raw).exists(
+              _.correlationId == correlationId
+            )
+          )
           .take(1)
           .compile
           .lastOrError
           .timeout(15.seconds)
-      } yield record.record.value
+      } yield record
     }
   }
 
   test(
-    "publishReserved produces exactly one message on inventory.stock-reserved"
+    "publishReserved produces one message on inventory-events, wrapped in an envelope"
   ) {
     withContainers { kafka =>
       val config = configFor(kafka)
       val event = StockReservedEvent(
-        orderItemId = "item-1",
+        orderItemId = "item-reserved-1",
         sku = "sku-widget-1",
         quantity = 30,
         timestamp = Instant.parse("2026-01-01T00:00:00Z")
@@ -53,21 +68,29 @@ class StockEventPublisherSuite
       for {
         consumed <- StockEventPublisher
           .resource[IO](config)
-          .use(_.publishReserved(event)) *> consumeOne(
+          .use(_.publishReserved(event)) *> consumeEnvelope(
           config,
-          StockEventPublisher.reservedTopic
+          StockEventPublisher.topic,
+          event.orderItemId
         )
-      } yield assertEquals(decode[StockReservedEvent](consumed), Right(event))
+        envelope = decode[EventEnvelope](consumed).toOption.get
+      } yield {
+        assertEquals(envelope.eventType, "StockReserved")
+        assertEquals(envelope.source, "inventory-service")
+        assertEquals(envelope.correlationId, "item-reserved-1")
+        assert(envelope.eventId.nonEmpty)
+        assertEquals(envelope.payload.as[StockReservedEvent], Right(event))
+      }
     }
   }
 
   test(
-    "publishFailed produces exactly one message on inventory.stock-reservation-failed"
+    "publishFailed produces one message on inventory-events, wrapped in an envelope"
   ) {
     withContainers { kafka =>
       val config = configFor(kafka)
       val event = StockReservationFailedEvent(
-        orderItemId = "item-1",
+        orderItemId = "item-failed-1",
         sku = "sku-widget-1",
         quantity = 80,
         timestamp = Instant.parse("2026-01-01T00:00:00Z")
@@ -75,14 +98,22 @@ class StockEventPublisherSuite
       for {
         consumed <- StockEventPublisher
           .resource[IO](config)
-          .use(_.publishFailed(event)) *> consumeOne(
+          .use(_.publishFailed(event)) *> consumeEnvelope(
           config,
-          StockEventPublisher.reservationFailedTopic
+          StockEventPublisher.topic,
+          event.orderItemId
         )
-      } yield assertEquals(
-        decode[StockReservationFailedEvent](consumed),
-        Right(event)
-      )
+        envelope = decode[EventEnvelope](consumed).toOption.get
+      } yield {
+        assertEquals(envelope.eventType, "StockReservationFailed")
+        assertEquals(envelope.source, "inventory-service")
+        assertEquals(envelope.correlationId, "item-failed-1")
+        assert(envelope.eventId.nonEmpty)
+        assertEquals(
+          envelope.payload.as[StockReservationFailedEvent],
+          Right(event)
+        )
+      }
     }
   }
 }
