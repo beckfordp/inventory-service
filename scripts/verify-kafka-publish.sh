@@ -43,16 +43,34 @@ check() {
   fi
 }
 
-# Consumes up to one message from a topic, printing it (empty if none within
-# the timeout). Runs the broker's own console consumer inside the container.
-consume_one() {
-  local topic="$1"
+# All events now share one `inventory-events` topic (ADR 0009's envelope
+# migration), so consume a batch from the beginning and pick out the first
+# envelope matching the given eventType, printing just its `payload` - the
+# same shape callers already expect from the pre-envelope bare-payload
+# messages.
+consume_envelope_payload() {
+  local topic="$1" event_type="$2"
   docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 \
     --topic "$topic" \
     --from-beginning \
-    --max-messages 1 \
-    --timeout-ms 10000 2>/dev/null || true
+    --max-messages 5 \
+    --timeout-ms 10000 2>/dev/null \
+    | python3 -c "
+import json, sys
+target = sys.argv[1]
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        envelope = json.loads(line)
+    except ValueError:
+        continue
+    if envelope.get('eventType') == target:
+        print(json.dumps(envelope['payload']))
+        break
+" "$event_type" || true
 }
 
 echo "1. docker compose up -d (fresh volumes)..."
@@ -79,28 +97,28 @@ create_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost
 check "POST /inventorys returns 201" "201" "$create_status"
 
 echo
-echo "4. Reserve 30 units (expect 200) and confirm inventory.stock-reserved..."
+echo "4. Reserve 30 units (expect 200) and confirm a StockReserved envelope on inventory-events..."
 reserve_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/inventorys/reservations \
-  -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":30}")"
+  -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":30,\"orderItemId\":\"verify-kafka-item-a\"}")"
 check "POST /inventorys/reservations returns 200" "200" "$reserve_status"
-reserved_message="$(consume_one inventory.stock-reserved)"
-echo "   message: ${reserved_message:-<none>}"
+reserved_message="$(consume_envelope_payload inventory-events StockReserved)"
+echo "   payload: ${reserved_message:-<none>}"
 reserved_sku="$(echo "$reserved_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sku',''))" 2>/dev/null || echo "")"
 reserved_quantity="$(echo "$reserved_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('quantity',''))" 2>/dev/null || echo "")"
-check "inventory.stock-reserved message has correct sku" "$sku" "$reserved_sku"
-check "inventory.stock-reserved message has correct quantity" "30" "$reserved_quantity"
+check "StockReserved payload has correct sku" "$sku" "$reserved_sku"
+check "StockReserved payload has correct quantity" "30" "$reserved_quantity"
 
 echo
-echo "5. Reserve more than available (80, only 70 left, expect 409) and confirm inventory.stock-reservation-failed..."
+echo "5. Reserve more than available (80, only 70 left, expect 409) and confirm a StockReservationFailed envelope on inventory-events..."
 conflict_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/inventorys/reservations \
-  -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":80}")"
+  -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":80,\"orderItemId\":\"verify-kafka-item-b\"}")"
 check "over-reservation returns 409" "409" "$conflict_status"
-failed_message="$(consume_one inventory.stock-reservation-failed)"
-echo "   message: ${failed_message:-<none>}"
+failed_message="$(consume_envelope_payload inventory-events StockReservationFailed)"
+echo "   payload: ${failed_message:-<none>}"
 failed_sku="$(echo "$failed_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('sku',''))" 2>/dev/null || echo "")"
 failed_quantity="$(echo "$failed_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('quantity',''))" 2>/dev/null || echo "")"
-check "inventory.stock-reservation-failed message has correct sku" "$sku" "$failed_sku"
-check "inventory.stock-reservation-failed message has correct quantity" "80" "$failed_quantity"
+check "StockReservationFailed payload has correct sku" "$sku" "$failed_sku"
+check "StockReservationFailed payload has correct quantity" "80" "$failed_quantity"
 
 echo
 if [ "$FAILED" -eq 0 ]; then

@@ -44,14 +44,34 @@ check() {
   fi
 }
 
-consume_one() {
-  local topic="$1"
+# All events now share one `inventory-events` topic (ADR 0009's envelope
+# migration), so consume a batch from the beginning and pick out the first
+# envelope matching the given eventType, printing just its `payload` - the
+# same shape callers already expect from the pre-envelope bare-payload
+# messages.
+consume_envelope_payload() {
+  local topic="$1" event_type="$2"
   docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 \
     --topic "$topic" \
     --from-beginning \
-    --max-messages 1 \
-    --timeout-ms 10000 2>/dev/null || true
+    --max-messages 5 \
+    --timeout-ms 10000 2>/dev/null \
+    | python3 -c "
+import json, sys
+target = sys.argv[1]
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    try:
+        envelope = json.loads(line)
+    except ValueError:
+        continue
+    if envelope.get('eventType') == target:
+        print(json.dumps(envelope['payload']))
+        break
+" "$event_type" || true
 }
 
 echo "1. docker compose up -d (fresh volumes)..."
@@ -78,26 +98,26 @@ create_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost
 check "POST /inventorys returns 201" "201" "$create_status"
 
 echo
-echo "4. Reserve 30 units with orderItemId, confirm it's echoed on inventory.stock-reserved..."
+echo "4. Reserve 30 units with orderItemId, confirm it's echoed on a StockReserved envelope on inventory-events..."
 item_id="order-item-$(date +%s)-a"
 reserve_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/inventorys/reservations \
   -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":30,\"orderItemId\":\"${item_id}\"}")"
 check "POST /inventorys/reservations returns 200" "200" "$reserve_status"
-reserved_message="$(consume_one inventory.stock-reserved)"
-echo "   message: ${reserved_message:-<none>}"
+reserved_message="$(consume_envelope_payload inventory-events StockReserved)"
+echo "   payload: ${reserved_message:-<none>}"
 reserved_item_id="$(echo "$reserved_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('orderItemId',''))" 2>/dev/null || echo "")"
-check "inventory.stock-reserved message has correct orderItemId" "$item_id" "$reserved_item_id"
+check "StockReserved payload has correct orderItemId" "$item_id" "$reserved_item_id"
 
 echo
-echo "5. Reserve more than available (80, only 70 left) with a different orderItemId, confirm it's echoed on inventory.stock-reservation-failed..."
+echo "5. Reserve more than available (80, only 70 left) with a different orderItemId, confirm it's echoed on a StockReservationFailed envelope on inventory-events..."
 failed_item_id="order-item-$(date +%s)-b"
 conflict_status="$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8080/inventorys/reservations \
   -H "Content-Type: application/json" -d "{\"sku\":\"${sku}\",\"quantity\":80,\"orderItemId\":\"${failed_item_id}\"}")"
 check "over-reservation returns 409" "409" "$conflict_status"
-failed_message="$(consume_one inventory.stock-reservation-failed)"
-echo "   message: ${failed_message:-<none>}"
+failed_message="$(consume_envelope_payload inventory-events StockReservationFailed)"
+echo "   payload: ${failed_message:-<none>}"
 failed_message_item_id="$(echo "$failed_message" | python3 -c "import json,sys; print(json.load(sys.stdin).get('orderItemId',''))" 2>/dev/null || echo "")"
-check "inventory.stock-reservation-failed message has correct orderItemId" "$failed_item_id" "$failed_message_item_id"
+check "StockReservationFailed payload has correct orderItemId" "$failed_item_id" "$failed_message_item_id"
 
 echo
 echo "6. Reserve without orderItemId, confirm it's rejected with 400..."
