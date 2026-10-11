@@ -2,9 +2,6 @@
 
 This file tracks all major tracks for the project.
 
-- [x] **Track: Migrate to inventory-events topic with envelope**
-  *Link: [./tracks/kafka-envelope_20261011/](./tracks/kafka-envelope_20261011/)*
-
 ---
 
 ## Backlog
