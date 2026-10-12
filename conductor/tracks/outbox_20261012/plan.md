@@ -1,8 +1,8 @@
 # Plan — TD-3.3: Transactional outbox for inventory-service (ADR 0008)
 
 ## Phase 1 — Outbox table + atomic reserve write
-- [ ] Task: Write failing `MigrationsSuite` test asserting `outbox_events` exists with columns `id`/`aggregate_id`/`payload`/`trace_parent`/`correlation_id`/`created_at` (Red)
-- [ ] Task: Add `V3__create_outbox_events.sql` migration to make it pass (Green)
+- [x] Task: Write failing `MigrationsSuite` test asserting `outbox_events` exists with columns `id`/`aggregate_id`/`payload`/`trace_parent`/`correlation_id`/`created_at` (Red) `ffd8d5e`
+- [x] Task: Add `V3__create_outbox_events.sql` migration to make it pass (Green) `ffd8d5e`
 - [ ] Task: Write failing `InventoryStoreSuite` test: on a successful `reserve`, a matching outbox row (`aggregate_id` = `orderItemId`) is written in the same transaction as the conditional UPDATE (Red)
 - [ ] Task: Extend `InventoryStore.reserve`'s success path (needs `orderItemId` threaded in as a new parameter) to write the outbox row inside its existing transaction (Green)
 - [ ] Task: Write failing test: on `InsufficientStock`, a matching `StockReservationFailed` outbox row is written, with no inventory row changed (Red); implement as a standalone outbox INSERT on that path (Green)
