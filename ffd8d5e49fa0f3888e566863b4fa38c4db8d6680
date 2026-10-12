@@ -1,0 +1,4 @@
+Task: Outbox table migration (Phase 1, TD-3.3/ADR 0008)
+Summary: Added V3__create_outbox_events.sql creating the outbox_events table (id uuid pk, aggregate_id text, payload jsonb, trace_parent text nullable, correlation_id text, created_at timestamptz default now()). Added skunk-circe dependency (build.sbt) for the jsonb Codec[Json] the next task needs. Documented the new dependency in conductor/tech-stack.md.
+Files: build.sbt, conductor/tech-stack.md, src/main/resources/db/migration/V3__create_outbox_events.sql, src/test/scala/inventoryservice/MigrationsSuite.scala
+Why: ADR 0008 (transactional outbox) needs this table before any store-level atomic write can be built. Test-first: wrote the failing information_schema assertion (Red, confirmed via sbt testOnly), then the migration (Green).
