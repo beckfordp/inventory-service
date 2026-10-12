@@ -68,6 +68,9 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
       // skunk: non-blocking, pure-FP Postgres access — this service's persistence layer.
       "org.tpolecat" %% "skunk-core" % skunkVersion,
+      // skunk-circe: Codec[Json] for the outbox_events.payload jsonb column (ADR 0008) —
+      // no other jsonb column exists yet in this service, so this is a new dependency.
+      "org.tpolecat" %% "skunk-circe" % skunkVersion,
       // fs2-kafka: pure-FP, FS2-native Kafka producer (publish-only; this
       // service has no consumer).
       "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,

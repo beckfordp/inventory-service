@@ -20,6 +20,10 @@
 
 ## Persistence
 - skunk 1.0.0 — pure-FP, non-blocking Postgres access (runtime queries)
+- skunk-circe 1.0.0 (added 2026-10-12, TD-3.3/ADR 0008 outbox track) —
+  `Codec[Json]` for the new `outbox_events.payload` jsonb column, the first
+  jsonb column in this service. No other option considered: this is the
+  idiomatic skunk↔circe bridge, same org/version as `skunk-core`.
 - Flyway 11.8.2 (+ flyway-database-postgresql) — schema migrations on startup
 - postgresql JDBC 42.7.13 — Flyway-only (runtime scope), never used directly
   in application code
