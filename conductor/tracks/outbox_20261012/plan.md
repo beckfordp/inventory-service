@@ -12,8 +12,8 @@
 - [x] Task: `InventoryRoutes`' `publishOutcome`: replace both `publisher.publishReserved(...)` and `publisher.publishFailed(...)` calls with the new `reserve` outbox-writing behavior from Phase 1 (Red: route test asserts outbox row rather than publisher invocation; Green: wire it) `e2e2fa3` — deviation: "wiring it" meant deleting `publishOutcome` entirely, not replacing its body — `reserve` already writes the outbox row itself (Phase 1), so there's nothing left for the routes layer to do
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Wire InventoryRoutes to the outbox' (Protocol in workflow.md) `7184fb3` — reduced-prompting mode: automated-test verification only (91 passed), no interactive walkthrough; see git note on `7184fb3`
 
-## Phase 3 — Delete StockEventPublisher
+## Phase 3 — Delete StockEventPublisher [checkpoint: 08a5641]
 - [x] Task: Delete `StockEventPublisher.scala` and `StockEventPublisherSuite.scala` `6b2f352`
 - [x] Task: Remove `StockEventPublisher.resource(...).use { ... }` wiring and publisher parameter threading from `Main.scala` and `InventoryRoutes` `6b2f352` — also removed 3 now-obsolete InventoryRoutesSuite tests whose only purpose was asserting publisher behavior; their HTTP-status coverage was already duplicated elsewhere
 - [x] Task: Run full test suite, confirm no regressions, confirm nothing still references `StockEventPublisher` `6b2f352` — 86 passed (91 − 5 removed tests); only a harmless doc-comment mention remains repo-wide
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Delete StockEventPublisher' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Delete StockEventPublisher' (Protocol in workflow.md) `08a5641` — reduced-prompting mode: automated-test verification only (86 passed), no interactive walkthrough; see git note on `08a5641`
