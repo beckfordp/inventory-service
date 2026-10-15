@@ -1,0 +1,26 @@
+Phase 1 verification report (TD-3.3, ADR 0008) - Outbox table + atomic reserve write
+
+Reduced-prompting mode active (.claude/prompt-off, off since 2026-10-01):
+automated-test verification only, no interactive manual-verification
+walkthrough.
+
+Automated test command: sbt scalafmtCheck test
+Result: 91 passed, 0 failed, 0 errors (0 ignored).
+
+What this proves:
+- outbox_events table exists (V3__create_outbox_events.sql), columns
+  id/aggregate_id/payload/trace_parent/correlation_id/created_at (MigrationsSuite).
+- InventoryStore.reserve's success path writes a StockReserved outbox row
+  (aggregate_id = orderItemId, decodable envelope payload, correct
+  correlationId) atomically with its conditional UPDATE - proven via a real
+  Postgres container + raw JDBC read-back of outbox_events
+  (InventoryStorePostgresSuite).
+- The InsufficientStock path writes a StockReservationFailed outbox row with
+  no inventory row mutated - also proven against a real Postgres container.
+- InventoryNotFound still writes no outbox row (unchanged, caller-input error).
+- Full existing suite (in-memory InventoryStore, InventoryRoutes, Cors, health
+  checks, StockEventPublisher - untouched until Phase 3) still green.
+
+Not yet covered by this phase: InventoryRoutes/publishOutcome still calls the
+old StockEventPublisher directly (Phase 2); StockEventPublisher itself still
+exists (Phase 3).
