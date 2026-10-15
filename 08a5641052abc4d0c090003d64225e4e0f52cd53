@@ -1,0 +1,21 @@
+Phase 3 verification report (TD-3.3, ADR 0008) - Delete StockEventPublisher
+
+Reduced-prompting mode active: automated-test verification only, no
+interactive manual-verification walkthrough.
+
+Automated test command: sbt scalafmtCheck test
+Result: 86 passed, 0 failed, 0 errors (down from 91 - 5 tests removed
+alongside the publisher they tested, expected).
+
+What this proves: StockEventPublisher and its direct Kafka producer are
+completely gone from inventory-service. The only path for a reserve outcome
+to leave this service is the outbox_events row written atomically inside
+InventoryStore.reserve (Phase 1) - no code anywhere in this repo still calls
+a Kafka producer directly for stock-reservation events. config.kafka stays
+defined in InventoryServiceConfig (out of scope for this track - config
+shape, not wiring) but is now unused by Main.scala.
+
+This closes TD-3.3 end to end: all three phases of the track are complete.
+Remaining work for the outbox pattern as a whole (TD-3.1, the shared Kafka
+Connect + Debezium connector infra) is gluon-root work, tracked separately,
+not a dependency this track needed.
