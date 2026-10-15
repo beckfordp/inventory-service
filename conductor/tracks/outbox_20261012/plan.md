@@ -9,7 +9,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Outbox table + atomic reserve write' (Protocol in workflow.md) `bdfeb8d` — reduced-prompting mode: automated-test verification only (91 passed), no interactive walkthrough; see git note on `bdfeb8d`
 
 ## Phase 2 — Wire InventoryRoutes to the outbox, not the publisher
-- [ ] Task: `InventoryRoutes`' `publishOutcome`: replace both `publisher.publishReserved(...)` and `publisher.publishFailed(...)` calls with the new `reserve` outbox-writing behavior from Phase 1 (Red: route test asserts outbox row rather than publisher invocation; Green: wire it)
+- [x] Task: `InventoryRoutes`' `publishOutcome`: replace both `publisher.publishReserved(...)` and `publisher.publishFailed(...)` calls with the new `reserve` outbox-writing behavior from Phase 1 (Red: route test asserts outbox row rather than publisher invocation; Green: wire it) `e2e2fa3` — deviation: "wiring it" meant deleting `publishOutcome` entirely, not replacing its body — `reserve` already writes the outbox row itself (Phase 1), so there's nothing left for the routes layer to do
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Wire InventoryRoutes to the outbox' (Protocol in workflow.md)
 
 ## Phase 3 — Delete StockEventPublisher
