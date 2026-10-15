@@ -3,9 +3,9 @@
 ## Phase 1 — Outbox table + atomic reserve write
 - [x] Task: Write failing `MigrationsSuite` test asserting `outbox_events` exists with columns `id`/`aggregate_id`/`payload`/`trace_parent`/`correlation_id`/`created_at` (Red) `ffd8d5e`
 - [x] Task: Add `V3__create_outbox_events.sql` migration to make it pass (Green) `ffd8d5e`
-- [ ] Task: Write failing `InventoryStoreSuite` test: on a successful `reserve`, a matching outbox row (`aggregate_id` = `orderItemId`) is written in the same transaction as the conditional UPDATE (Red)
-- [ ] Task: Extend `InventoryStore.reserve`'s success path (needs `orderItemId` threaded in as a new parameter) to write the outbox row inside its existing transaction (Green)
-- [ ] Task: Write failing test: on `InsufficientStock`, a matching `StockReservationFailed` outbox row is written, with no inventory row changed (Red); implement as a standalone outbox INSERT on that path (Green)
+- [x] Task: Write failing `InventoryStoreSuite` test: on a successful `reserve`, a matching outbox row (`aggregate_id` = `orderItemId`) is written in the same transaction as the conditional UPDATE (Red) `cab4ee2`
+- [x] Task: Extend `InventoryStore.reserve`'s success path (needs `orderItemId` threaded in as a new parameter) to write the outbox row inside its existing transaction (Green) `cab4ee2`
+- [x] Task: Write failing test: on `InsufficientStock`, a matching `StockReservationFailed` outbox row is written, with no inventory row changed (Red); implement as a standalone outbox INSERT on that path (Green) `cab4ee2` — deviation: implemented inside the same `session.transaction` block as the success path for code simplicity, not a separate bare INSERT; no behavioral difference since there's no competing write on this path
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Outbox table + atomic reserve write' (Protocol in workflow.md)
 
 ## Phase 2 — Wire InventoryRoutes to the outbox, not the publisher
