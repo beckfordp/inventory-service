@@ -1,0 +1,19 @@
+Task: InventoryRoutes' publishOutcome removed - outbox write (Phase 1) is now the only side effect (TD-3.3, ADR 0008)
+
+Summary: deleted publishOutcome entirely and its call site in
+reserveInventoryServerEndpoint - store.reserve already writes the outbox row
+atomically (Phase 1), so there's nothing left to publish from the routes
+layer. The StockEventPublisher parameter is kept on the signature (unused in
+the body) only because StockEventPublisher itself isn't deleted until Phase 3.
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryRoutes.scala - publishOutcome and
+  its call removed.
+- src/test/scala/inventoryservice/InventoryRoutesSuite.scala - the two tests
+  that asserted a publish call on success/InsufficientStock now assert NO
+  publish call happens (renamed accordingly); the outbox-row assertions live
+  in InventoryStorePostgresSuite instead (Phase 1).
+
+Verification: sbt scalafmtCheck test - 91 passed, 0 failed. Confirmed Red
+first (ran InventoryRoutesSuite before the code change; the two rewritten
+tests failed as expected against the still-publishing code).
