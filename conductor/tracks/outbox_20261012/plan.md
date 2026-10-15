@@ -8,9 +8,9 @@
 - [x] Task: Write failing test: on `InsufficientStock`, a matching `StockReservationFailed` outbox row is written, with no inventory row changed (Red); implement as a standalone outbox INSERT on that path (Green) `cab4ee2` — deviation: implemented inside the same `session.transaction` block as the success path for code simplicity, not a separate bare INSERT; no behavioral difference since there's no competing write on this path
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Outbox table + atomic reserve write' (Protocol in workflow.md) `bdfeb8d` — reduced-prompting mode: automated-test verification only (91 passed), no interactive walkthrough; see git note on `bdfeb8d`
 
-## Phase 2 — Wire InventoryRoutes to the outbox, not the publisher
+## Phase 2 — Wire InventoryRoutes to the outbox, not the publisher [checkpoint: 7184fb3]
 - [x] Task: `InventoryRoutes`' `publishOutcome`: replace both `publisher.publishReserved(...)` and `publisher.publishFailed(...)` calls with the new `reserve` outbox-writing behavior from Phase 1 (Red: route test asserts outbox row rather than publisher invocation; Green: wire it) `e2e2fa3` — deviation: "wiring it" meant deleting `publishOutcome` entirely, not replacing its body — `reserve` already writes the outbox row itself (Phase 1), so there's nothing left for the routes layer to do
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Wire InventoryRoutes to the outbox' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Wire InventoryRoutes to the outbox' (Protocol in workflow.md) `7184fb3` — reduced-prompting mode: automated-test verification only (91 passed), no interactive walkthrough; see git note on `7184fb3`
 
 ## Phase 3 — Delete StockEventPublisher
 - [ ] Task: Delete `StockEventPublisher.scala` and `StockEventPublisherSuite.scala`
