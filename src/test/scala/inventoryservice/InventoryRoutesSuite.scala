@@ -598,7 +598,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
   }
 
   test(
-    "POST /inventorys/reservations publishes inventory.stock-reserved on success"
+    "POST /inventorys/reservations no longer publishes via StockEventPublisher on success (ADR 0008: outbox write replaces it, verified at the store level in InventoryStorePostgresSuite)"
   ) {
     for {
       store <- InventoryStore.inMemory[IO]
@@ -618,16 +618,13 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       failed <- failedEvents
     } yield {
       assertEquals(reserveResponse.status, Status.Ok)
-      assertEquals(
-        reserved.map(e => (e.orderItemId, e.sku, e.quantity)),
-        List(("item-1", "sku-widget-1", 30))
-      )
+      assertEquals(reserved, Nil)
       assertEquals(failed, Nil)
     }
   }
 
   test(
-    "POST /inventorys/reservations publishes inventory.stock-reservation-failed on insufficient stock"
+    "POST /inventorys/reservations no longer publishes via StockEventPublisher on insufficient stock (ADR 0008: outbox write replaces it, verified at the store level in InventoryStorePostgresSuite)"
   ) {
     for {
       store <- InventoryStore.inMemory[IO]
@@ -648,10 +645,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
     } yield {
       assertEquals(reserveResponse.status, Status.Conflict)
       assertEquals(reserved, Nil)
-      assertEquals(
-        failed.map(e => (e.orderItemId, e.sku, e.quantity)),
-        List(("item-1", "sku-widget-1", 20))
-      )
+      assertEquals(failed, Nil)
     }
   }
 

@@ -304,56 +304,12 @@ object InventoryRoutes {
       } yield result
     }
 
-  /** Publishes the Kafka event for a reserve outcome, swallowing (but logging)
-    * a publish failure/timeout — the sync HTTP response is already determined
-    * by `store.reserve`'s result and must never change because Kafka is slow or
-    * down.
+  /** Reserve outcomes are no longer published here at all (ADR 0008, TD-3.3) —
+    * `store.reserve` now writes the matching outbox row atomically with its own
+    * state change (or, for `InsufficientStock`, as a standalone insert); the
+    * `publisher` parameter below is kept only because `StockEventPublisher`
+    * itself isn't deleted until Phase 3 of this track.
     */
-  private def publishOutcome[F[_]: Async](
-      publisher: StockEventPublisher[F],
-      logger: StructuredLogger[F],
-      sku: String,
-      quantity: Int,
-      orderItemId: String,
-      result: Either[InventoryError, Inventory]
-  ): F[Unit] =
-    result match {
-      case Right(_) =>
-        for {
-          now <- Async[F].realTimeInstant
-          _ <- publisher
-            .publishReserved(
-              StockReservedEvent(orderItemId, sku, quantity, now)
-            )
-            .attempt
-            .flatMap {
-              case Right(_)    => Async[F].unit
-              case Left(error) =>
-                logger.error(Map("sku" -> sku), error)(
-                  "Failed to publish inventory.stock-reserved"
-                )
-            }
-        } yield ()
-      case Left(InsufficientStock) =>
-        for {
-          now <- Async[F].realTimeInstant
-          _ <- publisher
-            .publishFailed(
-              StockReservationFailedEvent(orderItemId, sku, quantity, now)
-            )
-            .attempt
-            .flatMap {
-              case Right(_)    => Async[F].unit
-              case Left(error) =>
-                logger.error(Map("sku" -> sku), error)(
-                  "Failed to publish inventory.stock-reservation-failed"
-                )
-            }
-        } yield ()
-      case Left(InventoryNotFound) | Left(InvalidQuantity) =>
-        Async[F].unit
-    }
-
   def reserveInventoryServerEndpoint[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F],
@@ -369,14 +325,6 @@ object InventoryRoutes {
           )
         )("Received request")
         reserveResult <- store.reserve(req.sku, req.quantity, req.orderItemId)
-        _ <- publishOutcome(
-          publisher,
-          logger,
-          req.sku,
-          req.quantity,
-          req.orderItemId,
-          reserveResult
-        )
         result <- reserveResult match {
           case Right(entity) =>
             logger
