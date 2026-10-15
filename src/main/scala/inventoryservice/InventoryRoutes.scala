@@ -368,7 +368,7 @@ object InventoryRoutes {
             "sku" -> req.sku
           )
         )("Received request")
-        reserveResult <- store.reserve(req.sku, req.quantity)
+        reserveResult <- store.reserve(req.sku, req.quantity, req.orderItemId)
         _ <- publishOutcome(
           publisher,
           logger,

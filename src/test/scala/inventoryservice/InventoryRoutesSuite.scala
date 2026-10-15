@@ -30,7 +30,8 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       def delete(id: String): IO[Boolean] = IO.raiseError(error)
       def reserve(
           sku: String,
-          quantity: Int
+          quantity: Int,
+          orderItemId: String
       ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
@@ -685,7 +686,9 @@ class InventoryRoutesSuite extends CatsEffectSuite {
     }
   }
 
-  test("GET /inventorys returns 200 with all entities when no sku filter is given") {
+  test(
+    "GET /inventorys returns 200 with all entities when no sku filter is given"
+  ) {
     for {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
@@ -705,7 +708,10 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       entities <- response.as[List[InventoryResponse]]
     } yield {
       assertEquals(response.status, Status.Ok)
-      assertEquals(entities.map(_.sku).toSet, Set("sku-widget-1", "sku-widget-2"))
+      assertEquals(
+        entities.map(_.sku).toSet,
+        Set("sku-widget-1", "sku-widget-2")
+      )
     }
   }
 

@@ -85,7 +85,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
     for {
       store <- InventoryStore.inMemory[IO]
       _ <- store.create("sku-widget-1", 100)
-      result <- store.reserve("sku-widget-1", 30)
+      result <- store.reserve("sku-widget-1", 30, "order-item-1")
     } yield result match {
       case Right(entity) =>
         assertEquals(entity.quantityAvailable, 70)
@@ -101,14 +101,14 @@ class InventoryStoreSuite extends CatsEffectSuite {
     for {
       store <- InventoryStore.inMemory[IO]
       _ <- store.create("sku-widget-1", 10)
-      result <- store.reserve("sku-widget-1", 20)
+      result <- store.reserve("sku-widget-1", 20, "order-item-1")
     } yield assertEquals(result, Left(InsufficientStock))
   }
 
   test("reserve returns InventoryNotFound for an unknown sku") {
     for {
       store <- InventoryStore.inMemory[IO]
-      result <- store.reserve("unknown-sku", 10)
+      result <- store.reserve("unknown-sku", 10, "order-item-1")
     } yield assertEquals(result, Left(InventoryNotFound))
   }
 
@@ -116,8 +116,8 @@ class InventoryStoreSuite extends CatsEffectSuite {
     for {
       store <- InventoryStore.inMemory[IO]
       _ <- store.create("sku-widget-1", 100)
-      zero <- store.reserve("sku-widget-1", 0)
-      negative <- store.reserve("sku-widget-1", -5)
+      zero <- store.reserve("sku-widget-1", 0, "order-item-1")
+      negative <- store.reserve("sku-widget-1", -5, "order-item-1")
     } yield {
       assertEquals(zero, Left(InvalidQuantity))
       assertEquals(negative, Left(InvalidQuantity))
@@ -128,7 +128,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
     for {
       store <- InventoryStore.inMemory[IO]
       created <- store.create("sku-widget-1", 100)
-      _ <- store.reserve("sku-widget-1", -5)
+      _ <- store.reserve("sku-widget-1", -5, "order-item-1")
       after <- store.get(created.id)
     } yield assertEquals(after, Some(created))
   }

@@ -4,11 +4,14 @@ import cats.effect.IO
 import cats.syntax.all._
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.dimafeng.testcontainers.munit.TestContainerForAll
+import io.circe.Json
+import io.circe.parser.parse
 import munit.CatsEffectSuite
 import org.testcontainers.utility.DockerImageName
 import org.typelevel.otel4s.metrics.Meter
 import purerest.metrics.Metrics
 
+import java.sql.DriverManager
 import scala.jdk.CollectionConverters._
 
 class InventoryStorePostgresSuite
@@ -35,6 +38,41 @@ class InventoryStorePostgresSuite
     * inserted.
     */
   private def uniqueSku(): String = s"sku-${java.util.UUID.randomUUID()}"
+
+  private def uniqueOrderItemId(): String =
+    java.util.UUID.randomUUID().toString
+
+  /** Raw JDBC read of outbox_events' payload column for a given aggregate_id
+    * (same pattern as `MigrationsSuite`'s JDBC usage) — asserts on what was
+    * actually persisted, independent of `InventoryStore`'s own read path (which
+    * has no outbox-reading method at all; nothing in this service ever reads
+    * this table back).
+    */
+  private def outboxPayloads(
+      postgres: PostgreSQLContainer,
+      aggregateId: String
+  ): IO[List[Json]] =
+    IO.blocking {
+      val conn = DriverManager.getConnection(
+        postgres.jdbcUrl,
+        postgres.username,
+        postgres.password
+      )
+      try {
+        val stmt = conn.prepareStatement(
+          "select payload from outbox_events where aggregate_id = ?"
+        )
+        stmt.setString(1, aggregateId)
+        val rs = stmt.executeQuery()
+        Iterator
+          .unfold(())(_ =>
+            if (rs.next())
+              Some((parse(rs.getString("payload")).getOrElse(Json.Null), ()))
+            else None
+          )
+          .toList
+      } finally conn.close()
+    }
 
   test("create persists an entity and returns it with a generated id") {
     withContainers { postgres =>
@@ -355,13 +393,55 @@ class InventoryStorePostgresSuite
         .use { store =>
           for {
             _ <- store.create(sku, 100)
-            result <- store.reserve(sku, 30)
+            result <- store.reserve(sku, 30, uniqueOrderItemId())
           } yield result match {
             case Right(entity) =>
               assertEquals(entity.quantityAvailable, 70)
               assertEquals(entity.quantityReserved, 30)
             case Left(error) =>
               fail(s"expected a successful reservation, got: $error")
+          }
+        }
+    }
+  }
+
+  test(
+    "reserve on success writes a matching StockReserved outbox row atomically with the UPDATE"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      val orderItemId = uniqueOrderItemId()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            _ <- store.create(sku, 100)
+            result <- store.reserve(sku, 30, orderItemId)
+            payloads <- outboxPayloads(postgres, orderItemId)
+          } yield {
+            assert(result.isRight, s"expected success, got: $result")
+            assertEquals(
+              payloads.size,
+              1,
+              s"expected one outbox row, got: $payloads"
+            )
+            val envelope = payloads.head
+            assertEquals(
+              envelope.hcursor.get[String]("eventType"),
+              Right("StockReserved")
+            )
+            assertEquals(
+              envelope.hcursor.get[String]("correlationId"),
+              Right(orderItemId)
+            )
+            val eventPayload = envelope.hcursor.downField("payload")
+            assertEquals(
+              eventPayload.get[String]("orderItemId"),
+              Right(orderItemId)
+            )
+            assertEquals(eventPayload.get[String]("sku"), Right(sku))
+            assertEquals(eventPayload.get[Int]("quantity"), Right(30))
           }
         }
     }
@@ -378,11 +458,43 @@ class InventoryStorePostgresSuite
         .use { store =>
           for {
             created <- store.create(sku, 10)
-            result <- store.reserve(sku, 20)
+            result <- store.reserve(sku, 20, uniqueOrderItemId())
             after <- store.get(created.id)
           } yield {
             assertEquals(result, Left(InsufficientStock))
             assertEquals(after, Some(created))
+          }
+        }
+    }
+  }
+
+  test(
+    "reserve on InsufficientStock writes a matching StockReservationFailed outbox row, with no inventory row changed"
+  ) {
+    withContainers { postgres =>
+      val config = configFor(postgres)
+      val sku = uniqueSku()
+      val orderItemId = uniqueOrderItemId()
+      Migrations.run[IO](config) *> InventoryStore
+        .postgres[IO](config, Meter.noop[IO])
+        .use { store =>
+          for {
+            created <- store.create(sku, 10)
+            result <- store.reserve(sku, 20, orderItemId)
+            after <- store.get(created.id)
+            payloads <- outboxPayloads(postgres, orderItemId)
+          } yield {
+            assertEquals(result, Left(InsufficientStock))
+            assertEquals(after, Some(created))
+            assertEquals(
+              payloads.size,
+              1,
+              s"expected one outbox row, got: $payloads"
+            )
+            assertEquals(
+              payloads.head.hcursor.get[String]("eventType"),
+              Right("StockReservationFailed")
+            )
           }
         }
     }
@@ -394,7 +506,7 @@ class InventoryStorePostgresSuite
       Migrations.run[IO](config) *> InventoryStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
-          store.reserve(uniqueSku(), 10).map { result =>
+          store.reserve(uniqueSku(), 10, uniqueOrderItemId()).map { result =>
             assertEquals(result, Left(InventoryNotFound))
           }
         }
@@ -412,8 +524,8 @@ class InventoryStorePostgresSuite
         .use { store =>
           for {
             created <- store.create(sku, 100)
-            zero <- store.reserve(sku, 0)
-            negative <- store.reserve(sku, -5)
+            zero <- store.reserve(sku, 0, uniqueOrderItemId())
+            negative <- store.reserve(sku, -5, uniqueOrderItemId())
             after <- store.get(created.id)
           } yield {
             assertEquals(zero, Left(InvalidQuantity))
@@ -486,7 +598,9 @@ class InventoryStorePostgresSuite
             // 5 concurrent reservations of 30 each = 150 requested against
             // 100 available; at most 3 can succeed (3 * 30 = 90 <= 100, a
             // 4th would push it to 120).
-            results <- List.fill(5)(store.reserve(sku, 30)).parSequence
+            results <- List
+              .fill(5)(store.reserve(sku, 30, uniqueOrderItemId()))
+              .parSequence
             finalState <- store.get(
               results.collectFirst { case Right(entity) => entity.id }.get
             )

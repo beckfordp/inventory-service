@@ -20,7 +20,8 @@ class HealthRoutesSuite extends CatsEffectSuite {
       def delete(id: String): IO[Boolean] = IO.pure(false)
       def reserve(
           sku: String,
-          quantity: Int
+          quantity: Int,
+          orderItemId: String
       ): IO[Either[InventoryError, Inventory]] =
         IO.raiseError(new NotImplementedError())
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
@@ -40,7 +41,8 @@ class HealthRoutesSuite extends CatsEffectSuite {
       def delete(id: String): IO[Boolean] = IO.pure(false)
       def reserve(
           sku: String,
-          quantity: Int
+          quantity: Int,
+          orderItemId: String
       ): IO[Either[InventoryError, Inventory]] =
         IO.raiseError(new NotImplementedError())
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
