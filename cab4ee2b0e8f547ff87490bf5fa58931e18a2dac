@@ -1,0 +1,31 @@
+Task: outbox-write atomicity for InventoryStore.reserve (TD-3.3, ADR 0008)
+
+Summary: InventoryStore.reserve's success path (StockReserved) now writes the
+matching outbox_events row inside the same session.transaction as its
+conditional UPDATE - true atomicity. The InsufficientStock failure path also
+writes a StockReservationFailed outbox row (wrapped in the same transaction
+block for consistency, though there's no competing state-change write to be
+atomic with - 0 rows affected on that path). InventoryNotFound writes no
+outbox row (unchanged - caller-input error, not a stock outcome, matches
+system-design.md). aggregate_id/correlationId = orderItemId, not sku -
+deliberately fixes a drift from the StockEventPublisher this track replaces,
+which actually keyed Kafka records by sku despite system-design.md documenting
+orderItemId as inventory-events' partition key.
+
+Files changed:
+- src/main/scala/inventoryservice/InventoryStore.scala - reserve() signature
+  gains orderItemId; writeOutboxEvent helper; both outcome branches now INSERT
+  into outbox_events transactionally.
+- src/main/scala/inventoryservice/InventoryRoutes.scala - threads req.orderItemId
+  (already present on ReserveInventoryRequest) into store.reserve.
+- src/test/scala/inventoryservice/InventoryStorePostgresSuite.scala - two new
+  tests (success-path atomicity, failure-path outbox row) via raw JDBC read of
+  outbox_events; existing reserve() call sites updated for the new parameter.
+- src/test/scala/inventoryservice/{InventoryStoreSuite,InventoryRoutesSuite,HealthRoutesSuite}.scala -
+  updated fake/in-memory reserve() signatures to match.
+
+Why: ADR 0008 (transactional outbox) - closes TD-3's dual-write hazard for
+inventory-service's reserve endpoint; StockEventPublisher's direct Kafka
+produce call is replaced in Phase 2/3.
+
+Verification: sbt scalafmtCheck test - 91 passed, 0 failed.
