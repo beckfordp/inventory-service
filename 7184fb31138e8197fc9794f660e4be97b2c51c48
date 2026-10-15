@@ -1,0 +1,17 @@
+Phase 2 verification report (TD-3.3, ADR 0008) - Wire InventoryRoutes to the outbox
+
+Reduced-prompting mode active: automated-test verification only, no
+interactive manual-verification walkthrough.
+
+Automated test command: sbt scalafmtCheck test
+Result: 91 passed, 0 failed, 0 errors.
+
+What this proves: InventoryRoutes' reserve endpoint no longer calls
+StockEventPublisher at all - publishOutcome is gone. The only remaining side
+effect of a reserve call is the atomic outbox write already proven in Phase
+1. Confirmed via InventoryRoutesSuite (both the success and InsufficientStock
+paths assert zero publisher invocations) and the full existing suite staying
+green.
+
+Not yet covered: StockEventPublisher class, its Resource/noOp, and its
+Main.scala wiring still exist (dead code) - removed in Phase 3.
