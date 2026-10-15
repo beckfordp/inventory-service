@@ -305,15 +305,12 @@ object InventoryRoutes {
     }
 
   /** Reserve outcomes are no longer published here at all (ADR 0008, TD-3.3) —
-    * `store.reserve` now writes the matching outbox row atomically with its own
-    * state change (or, for `InsufficientStock`, as a standalone insert); the
-    * `publisher` parameter below is kept only because `StockEventPublisher`
-    * itself isn't deleted until Phase 3 of this track.
+    * `store.reserve` writes the matching outbox row atomically with its own
+    * state change (or, for `InsufficientStock`, as a standalone insert).
     */
   def reserveInventoryServerEndpoint[F[_]: Async](
       store: InventoryStore[F],
-      logger: StructuredLogger[F],
-      publisher: StockEventPublisher[F]
+      logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
     reserveInventoryEndpoint.serverLogic[F] { req =>
       for {
@@ -363,13 +360,6 @@ object InventoryRoutes {
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): HttpRoutes[F] =
-    routes(store, logger, StockEventPublisher.noOp[F])
-
-  def routes[F[_]: Async](
-      store: InventoryStore[F],
-      logger: StructuredLogger[F],
-      publisher: StockEventPublisher[F]
-  ): HttpRoutes[F] =
     Http4sServerInterpreter[F]().toRoutes(
       List(
         serverEndpoint(store, logger),
@@ -377,7 +367,7 @@ object InventoryRoutes {
         updateInventoryServerEndpoint(store, logger),
         replaceInventoryServerEndpoint(store, logger),
         deleteInventoryServerEndpoint(store, logger),
-        reserveInventoryServerEndpoint(store, logger, publisher),
+        reserveInventoryServerEndpoint(store, logger),
         listInventoryServerEndpoint(store, logger)
       )
     )

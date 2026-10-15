@@ -1,6 +1,6 @@
 package inventoryservice
 
-import cats.effect.{IO, Ref}
+import cats.effect.IO
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
@@ -35,29 +35,6 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
-    }
-
-  /** Records every publish call it receives, so tests can assert exactly what
-    * was (or wasn't) published without touching a real Kafka broker.
-    */
-  private def recordingPublisher(): IO[
-    (
-        StockEventPublisher[IO],
-        IO[List[StockReservedEvent]],
-        IO[List[StockReservationFailedEvent]]
-    )
-  ] =
-    for {
-      reserved <- Ref.of[IO, List[StockReservedEvent]](Nil)
-      failed <- Ref.of[IO, List[StockReservationFailedEvent]](Nil)
-    } yield {
-      val publisher = new StockEventPublisher[IO] {
-        def publishReserved(event: StockReservedEvent): IO[Unit] =
-          reserved.update(event :: _)
-        def publishFailed(event: StockReservationFailedEvent): IO[Unit] =
-          failed.update(event :: _)
-      }
-      (publisher, reserved.get, failed.get)
     }
 
   test("POST /inventorys returns 201 with the created entity") {
@@ -594,89 +571,6 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       )
     } yield {
       assertEquals(reserveResponse.status, Status.BadRequest)
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations no longer publishes via StockEventPublisher on success (ADR 0008: outbox write replaces it, verified at the store level in InventoryStorePostgresSuite)"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      publisherInfo <- recordingPublisher()
-      (publisher, reservedEvents, failedEvents) = publisherInfo
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO], publisher)
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 100)
-        )
-      )
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 30, "item-1"))
-      )
-      reserved <- reservedEvents
-      failed <- failedEvents
-    } yield {
-      assertEquals(reserveResponse.status, Status.Ok)
-      assertEquals(reserved, Nil)
-      assertEquals(failed, Nil)
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations no longer publishes via StockEventPublisher on insufficient stock (ADR 0008: outbox write replaces it, verified at the store level in InventoryStorePostgresSuite)"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      publisherInfo <- recordingPublisher()
-      (publisher, reservedEvents, failedEvents) = publisherInfo
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO], publisher)
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 10)
-        )
-      )
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 20, "item-1"))
-      )
-      reserved <- reservedEvents
-      failed <- failedEvents
-    } yield {
-      assertEquals(reserveResponse.status, Status.Conflict)
-      assertEquals(reserved, Nil)
-      assertEquals(failed, Nil)
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations never publishes for an unknown sku or an invalid quantity"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      publisherInfo <- recordingPublisher()
-      (publisher, reservedEvents, failedEvents) = publisherInfo
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO], publisher)
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 100)
-        )
-      )
-      notFoundResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("unknown-sku", 10, "item-1"))
-      )
-      invalidQuantityResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 0, "item-1"))
-      )
-      reserved <- reservedEvents
-      failed <- failedEvents
-    } yield {
-      assertEquals(notFoundResponse.status, Status.NotFound)
-      assertEquals(invalidQuantityResponse.status, Status.BadRequest)
-      assertEquals(reserved, Nil)
-      assertEquals(failed, Nil)
     }
   }
 
