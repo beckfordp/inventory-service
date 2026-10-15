@@ -1,0 +1,32 @@
+Task: delete StockEventPublisher entirely (TD-3.3, ADR 0008 Phase 3)
+
+Summary: removed StockEventPublisher.scala, StockEventPublisherSuite.scala,
+its Resource wiring in Main.scala, and the publisher parameter from
+InventoryRoutes (reserveInventoryServerEndpoint and the now-single routes()
+overload - the old two-overload split existed only to default to noOp when no
+publisher was given, which no longer applies). Three InventoryRoutesSuite
+tests that existed purely to assert publisher behavior (success/failure/never
+publishes for caller-input errors) were deleted - their HTTP-status coverage
+was already duplicated by earlier tests in the same file, and their
+publish-call assertions became unwritable once there's no publisher concept
+left to assert against. config.kafka/KafkaConfig stays in
+InventoryServiceConfig - out of scope (not this track's job to remove config
+shape, and may still be needed for a future TD-3.1-era consumer; just unused
+by Main.scala now).
+
+Files changed:
+- deleted: src/main/scala/inventoryservice/StockEventPublisher.scala,
+  src/test/scala/inventoryservice/StockEventPublisherSuite.scala
+- src/main/scala/inventoryservice/Main.scala - removed the
+  StockEventPublisher.resource(...).use {...} wrapper
+- src/main/scala/inventoryservice/InventoryRoutes.scala - removed the
+  publisher param from reserveInventoryServerEndpoint and collapsed routes()
+  to one overload
+- src/test/scala/inventoryservice/InventoryRoutesSuite.scala - removed
+  recordingPublisher helper and the three now-obsolete tests; unused Ref
+  import dropped
+
+Verification: sbt scalafmtCheck test - 86 passed, 0 failed (91 - 5 removed
+tests = 86, matches exactly). Confirmed zero remaining code references to
+StockEventPublisher repo-wide (one harmless doc-comment mention in
+InventoryStore.scala, not a compile dependency).
