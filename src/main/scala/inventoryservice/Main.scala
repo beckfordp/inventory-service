@@ -5,6 +5,7 @@ import cats.syntax.semigroupk._
 import com.comcast.ip4s._
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
+import org.http4s.server.staticcontent.{FileService, fileService}
 import purekafka.docs.{Docs => AsyncApiDocs}
 import purerest.docs.Docs
 import purerest.logging.Logging
@@ -61,17 +62,34 @@ object Main extends IOApp.Simple {
                     "1.0",
                     AsyncApiChannels.channels
                   )
-                  // asyncApiRoutes must come before docsRoutes: docsRoutes'
-                  // Swagger UI bundle serves a wildcard /docs/{resource}
-                  // route for its own static assets, which returns its own
-                  // real 404 (not a http4s fallthrough None) for any
-                  // /docs/* path it doesn't recognize - including
-                  // /docs/asyncapi.json - short-circuiting <+> before
-                  // asyncApiRoutes ever sees the request (found the hard
-                  // way in order-service's own asyncapi-docs_20261017 track).
+                  // Serves the sbt-purekafka-docs plugin's generated static
+                  // HTML at /docs/asyncapi/* - sibling to asyncApiRoutes'
+                  // raw-spec route, same split as Swagger's /docs vs
+                  // /docs/docs.yaml. Mirrors order-service's own
+                  // AppRoutes.scala.
+                  val staticAsyncApiDocsDir =
+                    sys.env.getOrElse(
+                      "ASYNCAPI_HTML_DIR",
+                      "target/asyncapi-docs"
+                    )
+                  val staticAsyncApiRoutes = fileService[IO](
+                    FileService.Config(
+                      systemPath = staticAsyncApiDocsDir,
+                      pathPrefix = "/docs/asyncapi"
+                    )
+                  )
+                  // asyncApiRoutes/staticAsyncApiRoutes must come before
+                  // docsRoutes: docsRoutes' Swagger UI bundle serves a
+                  // wildcard /docs/{resource} route for its own static
+                  // assets, which returns its own real 404 (not a http4s
+                  // fallthrough None) for any /docs/* path it doesn't
+                  // recognize - including /docs/asyncapi.json -
+                  // short-circuiting <+> before asyncApiRoutes ever sees
+                  // the request (found the hard way in order-service's own
+                  // asyncapi-docs_20261017 track).
                   val tracedRoutes =
                     ServerTracing.middleware(tracer)(
-                      asyncApiRoutes <+> docsRoutes
+                      asyncApiRoutes <+> staticAsyncApiRoutes <+> docsRoutes
                     )
                   val meteredRoutes =
                     ServerMetrics.middleware[IO](meter)(tracedRoutes)
