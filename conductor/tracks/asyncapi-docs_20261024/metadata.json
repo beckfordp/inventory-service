@@ -1,0 +1,8 @@
+{
+  "track_id": "asyncapi-docs_20261024",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-24T15:13:38Z",
+  "updated_at": "2026-10-24T15:13:38Z",
+  "description": "AsyncAPI docs for inventory-events (ADR 0010) — register AsyncApiChannels for the published inventory-events channel (StockReserved/StockReservationFailed event types, ChannelDirection.Publish(PublisherKind.Cdc) since inventory-service publishes via outbox+Debezium, not a direct producer) and wire PureKafkaDocsPlugin into build.sbt/project/plugins.sbt, mirroring order-service's asyncapi-docs_20261017 track. Served at /docs/asyncapi.json + /docs/asyncapi. Closes the inventory-service portion of gluon/PLAN.md Rework 3's 'Adopt across...' bullet. No stream-supervision/DLQ scope — inventory-service has no Kafka consumer."
+}
