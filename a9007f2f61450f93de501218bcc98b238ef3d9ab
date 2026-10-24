@@ -1,0 +1,22 @@
+Task: Phase 2 — Channel registration + raw-spec route (Red+Green)
+
+Summary: AsyncApiChannels.scala registers StockReserved/StockReservationFailed
+on inventory-events as Publish(Cdc) (outbox/Debezium, no direct producer -
+mirrors order-service's own doc-comment convention). Mounted
+purekafka.docs.Docs.routes[F] in Main.scala, ordered before the existing
+OpenAPI docsRoutes to avoid order-service's known route-ordering bug
+(Swagger UI's wildcard /docs/{resource} would otherwise 404-shortcircuit
+/docs/asyncapi.json before it's ever reached).
+
+Files:
+- src/main/scala/inventoryservice/AsyncApiChannels.scala (new)
+- src/main/scala/inventoryservice/Main.scala (asyncApiRoutes mounted)
+- src/test/scala/inventoryservice/AsyncApiChannelsSuite.scala (registry
+  test + raw-spec route test)
+
+Deviation: the raw-spec route test (building Docs.routes directly, same
+as InventoryDocsSuite's own pattern) was already-Green once the registry
+existed - no Main.scala wiring needed for the test itself, same deviation
+order-service's track noted at the equivalent step.
+
+89/89 tests passing.
