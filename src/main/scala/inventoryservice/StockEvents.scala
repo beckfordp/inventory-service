@@ -2,6 +2,7 @@ package inventoryservice
 
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import sttp.tapir.Schema
 
 import java.time.Instant
 
@@ -25,6 +26,7 @@ final case class StockReservedEvent(
 
 object StockReservedEvent {
   implicit val codec: Codec[StockReservedEvent] = deriveCodec
+  implicit val schema: Schema[StockReservedEvent] = Schema.derived
 }
 
 final case class StockReservationFailedEvent(
@@ -36,4 +38,5 @@ final case class StockReservationFailedEvent(
 
 object StockReservationFailedEvent {
   implicit val codec: Codec[StockReservationFailedEvent] = deriveCodec
+  implicit val schema: Schema[StockReservationFailedEvent] = Schema.derived
 }

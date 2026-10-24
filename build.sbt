@@ -13,6 +13,9 @@ val postgresqlJdbcVersion = "42.7.13"
 val pureconfigVersion = "0.17.10"
 val testcontainersScalaVersion = "0.43.6"
 val fs2KafkaVersion = "3.6.0"
+// purekafka: Kafka resilience/observability combinators + AsyncAPI docs
+// support (ADR 0010). Pinned to match order-service's own version.
+val purekafkaVersion = "0.2.1"
 // Pinned to match the purerestlib version this service is built against — see
 // README's "Consuming purerest as a dependency" section.
 val purerestlibVersion = "0.1.0"
@@ -74,6 +77,9 @@ lazy val root = project
       // fs2-kafka: pure-FP, FS2-native Kafka producer (publish-only; this
       // service has no consumer).
       "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,
+      // purekafka: AsyncAPI documentation support for this service's
+      // published inventory-events channel (ADR 0010).
+      "io.github.beckfordp" %% "purekafka" % purekafkaVersion,
       // flyway: JDBC-based schema migration tool, run on startup to create/update the
       // inventory table. Independent of Skunk (which handles all runtime queries).
       "org.flywaydb" % "flyway-core" % flywayVersion,
