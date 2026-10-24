@@ -49,12 +49,15 @@
       (`./scripts/verify-kafka-asyncapi-docs.sh`, all checks passed); see
       git note on `c452746`
 
-## Phase 4: Docs + full verification [checkpoint: PENDING]
+## Phase 4: Docs + full verification [checkpoint: f6ec3ee]
 - [x] Task: Update README with a "View Kafka AsyncAPI docs" section
       `f71a960`
 - [x] Task: Run full test suite + `./scripts/verify-kafka-asyncapi-docs.sh`
       end-to-end; confirm no regressions — 89 tests passing, scalafmtCheck
       clean, verify script passed end-to-end in Phase 3; no code changes,
       nothing further to commit for this task
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Docs + full
-      verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Docs + full
+      verification' (Protocol in workflow.md) `f6ec3ee` —
+      reduced-prompting mode: automated/end-to-end verification only (89
+      passed, verify script passed in Phase 3), no interactive walkthrough;
+      see git note on `f6ec3ee`
