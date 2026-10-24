@@ -1,0 +1,10 @@
+Phase 2 Verification Report — Channel registration + raw-spec route
+
+Automated test command: sbt scalafmtCheck test
+Result: 89/89 tests passing, scalafmtCheck clean.
+
+Manual verification: skipped (reduced-prompting mode, .claude/prompt-off) -
+no live/manual-verification surface yet (routes tested via direct
+Docs.routes construction, not a running server), consistent with
+order-service's own Phase 2. User confirmed proceeding without an
+interactive walkthrough.
