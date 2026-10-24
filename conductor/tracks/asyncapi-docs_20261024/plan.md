@@ -32,15 +32,17 @@
       reduced-prompting mode: automated-test verification only (89 passed),
       no interactive walkthrough; see git note on `ef306ee`
 
-## Phase 3: sbt plugin wiring + static HTML serving
-- [ ] Task: `project/plugins.sbt` — add `sbt-purekafka-docs` + GitHub
+## Phase 3: sbt plugin wiring + static HTML serving [checkpoint: PENDING]
+- [x] Task: `project/plugins.sbt` — add `sbt-purekafka-docs` + GitHub
       Packages resolver/credentials (copy order-service's verbatim)
-- [ ] Task: `build.sbt` — enable `PureKafkaDocsPlugin`, set
-      `asyncApiChannelsClass`/`asyncApiTitle`/`asyncApiVersion`
-- [ ] Task: Adapt `scripts/generate-kafka-asyncapi-docs.sh`/
-      `verify-kafka-asyncapi-docs.sh` from order-service (own port/route)
-- [ ] Task: Add `/docs/asyncapi` route in `Main.scala` serving the generated
-      static HTML, sibling to the raw-spec route
+      `6eeddee`
+- [x] Task: `build.sbt` — enable `PureKafkaDocsPlugin`, set
+      `asyncApiChannelsClass`/`asyncApiTitle`/`asyncApiVersion` `6eeddee`
+- [x] Task: Adapt `verify-kafka-asyncapi-docs.sh` from order-service (own
+      port/route; no `generate-kafka-asyncapi-docs.sh` to adapt - superseded
+      by the sbt plugin in order-service too) `6eeddee`
+- [x] Task: Add `/docs/asyncapi` route in `Main.scala` serving the generated
+      static HTML, sibling to the raw-spec route `6eeddee`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: sbt plugin
       wiring + static HTML serving' (Protocol in workflow.md)
 
