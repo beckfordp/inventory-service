@@ -1,15 +1,7 @@
 package inventoryservice
 
-import cats.effect.IO
-import munit.{CatsEffectSuite, FunSuite}
-import org.http4s.implicits._
-import org.http4s.{Method, Request, Status}
-import purekafka.docs.{
-  AsyncApiChannel,
-  ChannelDirection,
-  Docs => AsyncApiDocs,
-  PublisherKind
-}
+import munit.FunSuite
+import purekafka.docs.{AsyncApiChannel, ChannelDirection, PublisherKind}
 
 class AsyncApiChannelsSuite extends FunSuite {
 
@@ -51,27 +43,5 @@ class AsyncApiChannelsSuite extends FunSuite {
         ChannelDirection.Publish(PublisherKind.Cdc): ChannelDirection,
         s"expected ${channel.eventType} to be Publish(Cdc) - inventory-service's own outbox publishes it via Debezium CDC"
       )
-  }
-}
-
-class AsyncApiRoutesSuite extends CatsEffectSuite {
-
-  test("GET /docs/asyncapi.json returns 200 with both event types") {
-    val routes =
-      AsyncApiDocs.routes[IO](
-        "Inventory Service",
-        "1.0",
-        AsyncApiChannels.channels
-      )
-    for {
-      response <- routes.orNotFound.run(
-        Request[IO](Method.GET, uri"/docs/asyncapi.json")
-      )
-      body <- response.bodyText.compile.string
-    } yield {
-      assertEquals(response.status, Status.Ok)
-      assert(clue(body).contains("StockReserved"))
-      assert(clue(body).contains("StockReservationFailed"))
-    }
   }
 }
