@@ -17,6 +17,12 @@
 ## API layer
 - tapir 1.11.25 — route definitions and generated Swagger/OpenAPI docs
   (`purerest.docs.Docs`), served at `/docs`, kept in sync by construction
+- purekafka.docs (`AsyncApiChannel`/`Docs`) — generates AsyncAPI documentation
+  for this service's Kafka event contracts (`AsyncApiChannels`), served at
+  `/docs/asyncapi.json` (raw spec) and `/docs/asyncapi` (rendered static HTML)
+  — same tapir-OpenAPI pattern, for the Kafka side. Generation handled by the
+  `sbt-purekafka-docs` plugin, auto-chained after `Compile / compile` — no
+  manual script needed (ADR 0010).
 
 ## Persistence
 - skunk 1.0.0 — pure-FP, non-blocking Postgres access (runtime queries)
