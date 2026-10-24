@@ -1,13 +1,13 @@
 # Plan — AsyncAPI docs for inventory-events (ADR 0010)
 
 ## Phase 1: Dependency bump + schema derivation
-- [ ] Task: Write failing test asserting `AsyncApiChannel[StockReservedEvent]`/
+- [x] Task: Write failing test asserting `AsyncApiChannel[StockReservedEvent]`/
       `AsyncApiChannel[StockReservationFailedEvent]` construct (needs an
-      implicit tapir `Schema[A]`) (Red)
-- [ ] Task: Bump `io.github.beckfordp:purekafka` to the pinned version
+      implicit tapir `Schema[A]`) (Red) `c7cb0aa`
+- [x] Task: Bump `io.github.beckfordp:purekafka` to the pinned version
       order-service uses (includes the AsyncAPI topic-merge fix); add tapir
       `Schema.derived` to both event case classes in `StockEvents.scala`
-      (Green)
+      (Green) `c7cb0aa` — committed Red+Green together
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Dependency bump +
       schema derivation' (Protocol in workflow.md)
 
