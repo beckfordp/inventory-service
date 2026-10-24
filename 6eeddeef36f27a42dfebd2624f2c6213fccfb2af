@@ -1,0 +1,21 @@
+Task: Phase 3 — sbt plugin wiring + static HTML serving
+
+Summary: Wired sbt-purekafka-docs (project/plugins.sbt: GitHub Packages
+resolver/credentials + plugin pin 0.1.0-dev, matching order-service/the
+generator template's own pin); enabled PureKafkaDocsPlugin in build.sbt with
+asyncApiChannelsClass/asyncApiTitle/asyncApiVersion. Added a fileService
+route serving the generated static HTML at /docs/asyncapi, ordered before
+docsRoutes like the raw-spec route (same route-ordering lesson applied).
+Adapted order-service's verify-kafka-asyncapi-docs.sh for inventory-service
+(own port, no inventory-service dependency to stub since inventory-service
+itself has no outbound cross-service call).
+
+Files:
+- project/plugins.sbt (sbt-purekafka-docs plugin)
+- build.sbt (PureKafkaDocsPlugin enabled + settings)
+- src/main/scala/inventoryservice/Main.scala (static HTML route)
+- scripts/verify-kafka-asyncapi-docs.sh (new)
+
+Verified end-to-end via ./scripts/verify-kafka-asyncapi-docs.sh: build-time
+spec/HTML generation, live raw-spec route, live static HTML route - all
+green. 89/89 unit tests still passing.
