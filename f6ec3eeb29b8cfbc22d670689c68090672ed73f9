@@ -1,0 +1,12 @@
+Phase 4 Verification Report — Docs + full verification
+
+Automated test command: sbt scalafmtCheck test
+Result: 89/89 tests passing, scalafmtCheck clean. No regressions from
+Phase 3's end-to-end verify script run.
+
+README updated with a "View Kafka AsyncAPI docs" section, same style as
+order-service's.
+
+Manual verification: skipped (reduced-prompting mode, .claude/prompt-off) -
+this phase is docs + a regression check, the live verification already
+happened in Phase 3. Track complete.
