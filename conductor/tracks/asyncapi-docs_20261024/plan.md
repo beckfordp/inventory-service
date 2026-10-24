@@ -32,7 +32,7 @@
       reduced-prompting mode: automated-test verification only (89 passed),
       no interactive walkthrough; see git note on `ef306ee`
 
-## Phase 3: sbt plugin wiring + static HTML serving [checkpoint: PENDING]
+## Phase 3: sbt plugin wiring + static HTML serving [checkpoint: c452746]
 - [x] Task: `project/plugins.sbt` — add `sbt-purekafka-docs` + GitHub
       Packages resolver/credentials (copy order-service's verbatim)
       `6eeddee`
@@ -43,8 +43,11 @@
       by the sbt plugin in order-service too) `6eeddee`
 - [x] Task: Add `/docs/asyncapi` route in `Main.scala` serving the generated
       static HTML, sibling to the raw-spec route `6eeddee`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: sbt plugin
-      wiring + static HTML serving' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: sbt plugin
+      wiring + static HTML serving' (Protocol in workflow.md) `c452746` —
+      reduced-prompting mode: end-to-end script verification only
+      (`./scripts/verify-kafka-asyncapi-docs.sh`, all checks passed); see
+      git note on `c452746`
 
 ## Phase 4: Docs + full verification
 - [ ] Task: Update README with a "View Kafka AsyncAPI docs" section
