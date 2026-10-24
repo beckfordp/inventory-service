@@ -1,9 +1,11 @@
 package inventoryservice
 
 import cats.effect.{IO, IOApp}
+import cats.syntax.semigroupk._
 import com.comcast.ip4s._
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
+import purekafka.docs.{Docs => AsyncApiDocs}
 import purerest.docs.Docs
 import purerest.logging.Logging
 import purerest.metrics.{Metrics, ServerMetrics}
@@ -54,8 +56,23 @@ object Main extends IOApp.Simple {
                       HealthRoutes.readyServerEndpoint[IO](store)
                     )
                   )
+                  val asyncApiRoutes = AsyncApiDocs.routes[IO](
+                    "Inventory Service",
+                    "1.0",
+                    AsyncApiChannels.channels
+                  )
+                  // asyncApiRoutes must come before docsRoutes: docsRoutes'
+                  // Swagger UI bundle serves a wildcard /docs/{resource}
+                  // route for its own static assets, which returns its own
+                  // real 404 (not a http4s fallthrough None) for any
+                  // /docs/* path it doesn't recognize - including
+                  // /docs/asyncapi.json - short-circuiting <+> before
+                  // asyncApiRoutes ever sees the request (found the hard
+                  // way in order-service's own asyncapi-docs_20261017 track).
                   val tracedRoutes =
-                    ServerTracing.middleware(tracer)(docsRoutes)
+                    ServerTracing.middleware(tracer)(
+                      asyncApiRoutes <+> docsRoutes
+                    )
                   val meteredRoutes =
                     ServerMetrics.middleware[IO](meter)(tracedRoutes)
                   val routes = Cors.middleware[IO](meteredRoutes)
