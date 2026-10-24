@@ -14,14 +14,19 @@
       walkthrough; see git note on `b2a073b`
 
 ## Phase 2: Channel registration + raw-spec route
-- [ ] Task: Write failing test: a new `AsyncApiChannels` registry exposes
+- [x] Task: Write failing test: a new `AsyncApiChannels` registry exposes
       both channels on topic `inventory-events`, correct eventType,
-      `ChannelDirection.Publish(PublisherKind.Cdc)` (Red)
-- [ ] Task: Implement `AsyncApiChannels.scala` (Green)
-- [ ] Task: Write failing test: `GET /docs/asyncapi.json` returns 200 with a
-      document containing both event types (Red)
-- [ ] Task: Mount `purekafka.docs.Docs.routes[F]` in `Main.scala`, merged
-      with existing OpenAPI routes (Green)
+      `ChannelDirection.Publish(PublisherKind.Cdc)` (Red) `a9007f2`
+- [x] Task: Implement `AsyncApiChannels.scala` (Green) `a9007f2`
+- [x] Task: Write failing test: `GET /docs/asyncapi.json` returns 200 with a
+      document containing both event types (Red) `a9007f2` — deviation:
+      already-Green, not Red (building `Docs.routes` directly in-test needs
+      no `Main.scala` wiring), same deviation order-service's own track
+      noted
+- [x] Task: Mount `purekafka.docs.Docs.routes[F]` in `Main.scala`, merged
+      with existing OpenAPI routes (Green) `a9007f2` — applied
+      order-service's own route-ordering lesson from the start
+      (`asyncApiRoutes <+> docsRoutes`, not the reverse)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Channel
       registration + raw-spec route' (Protocol in workflow.md)
 
