@@ -1,0 +1,12 @@
+Phase 3 Verification Report — sbt plugin wiring + static HTML serving
+
+Automated + end-to-end verification command: ./scripts/verify-kafka-asyncapi-docs.sh
+Result: all checks passed - build-time spec/HTML generation (sbt
+asyncApiGenerate), live raw-spec route (/docs/asyncapi.json), live static
+HTML route (/docs/asyncapi/), both event types present throughout.
+
+Manual verification: this script run IS the manual-verification substitute
+(reduced-prompting mode, .claude/prompt-off) - a real end-to-end check
+against a running instance + docker compose (postgres, kafka), not an
+interactive walkthrough. Consistent with order-service's own Phase 3
+precedent.
