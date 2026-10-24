@@ -13,7 +13,7 @@
       mode: automated-test verification only (87 passed), no interactive
       walkthrough; see git note on `b2a073b`
 
-## Phase 2: Channel registration + raw-spec route
+## Phase 2: Channel registration + raw-spec route [checkpoint: ef306ee]
 - [x] Task: Write failing test: a new `AsyncApiChannels` registry exposes
       both channels on topic `inventory-events`, correct eventType,
       `ChannelDirection.Publish(PublisherKind.Cdc)` (Red) `a9007f2`
@@ -27,8 +27,10 @@
       with existing OpenAPI routes (Green) `a9007f2` — applied
       order-service's own route-ordering lesson from the start
       (`asyncApiRoutes <+> docsRoutes`, not the reverse)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Channel
-      registration + raw-spec route' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Channel
+      registration + raw-spec route' (Protocol in workflow.md) `ef306ee` —
+      reduced-prompting mode: automated-test verification only (89 passed),
+      no interactive walkthrough; see git note on `ef306ee`
 
 ## Phase 3: sbt plugin wiring + static HTML serving
 - [ ] Task: `project/plugins.sbt` — add `sbt-purekafka-docs` + GitHub
