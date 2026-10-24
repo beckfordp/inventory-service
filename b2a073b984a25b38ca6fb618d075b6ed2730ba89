@@ -1,0 +1,10 @@
+Phase 1 Verification Report — Dependency bump + schema derivation
+
+Automated test command: sbt scalafmtCheck test
+Result: 87/87 tests passing, scalafmtCheck clean.
+
+Manual verification: skipped (reduced-prompting mode, .claude/prompt-off
+set 2026-10-01) — Phase 1 has no live/manual-verification surface (schema
+derivation + a dependency bump, no new runtime behavior), consistent with
+order-service's own asyncapi-docs_20261017 track's Phase 1. User confirmed
+proceeding without an interactive walkthrough for this phase.
