@@ -1,0 +1,16 @@
+Task: Phase 1 Tasks 1+2 — Dependency bump + schema derivation (Red+Green)
+
+Summary: Added io.github.beckfordp:purekafka 0.2.1 dependency (matches
+order-service's pin) and tapir Schema.derived to StockReservedEvent/
+StockReservationFailedEvent, enabling AsyncApiChannel[A] construction for
+both event types. Verified via a new failing-then-passing test.
+
+Files:
+- build.sbt (new purekafkaVersion val + dependency)
+- src/main/scala/inventoryservice/StockEvents.scala (Schema.derived added
+  to both event companions)
+- src/test/scala/inventoryservice/AsyncApiChannelsSuite.scala (new; Red
+  confirmed missing dependency, Green confirmed after adding it + Schema)
+
+Why: AsyncApiChannel[A] requires an implicit tapir Schema[A] in scope — the
+prerequisite for Phase 2's channel registration.
