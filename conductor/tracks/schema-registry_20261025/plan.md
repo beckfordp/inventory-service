@@ -23,13 +23,17 @@
       verification only, no interactive walkthrough; see git note on
       `b4fc9b5`
 
-## Phase 2: Real CI wiring
-- [ ] Task: Add the same `docker run` Apicurio CI step shape as
-      order-service's `ci.yml` to this repo's `ci.yml`
-- [ ] Task: Confirm/arrange the `GH_PACKAGES_TOKEN` repo secret is in
+## Phase 2: Real CI wiring [checkpoint: TBD]
+- [x] Task: Add the same `docker run` Apicurio CI step shape as
+      order-service's `ci.yml` to this repo's `ci.yml` `4388854`
+- [x] Task: Confirm/arrange the `GH_PACKAGES_TOKEN` repo secret is in
       place (pre-existing gap, same as order-service — flag to the user
-      if still missing)
-- [ ] Task: Push this branch and confirm the new CI step passes on a
-      real GitHub Actions run
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Real CI
-      wiring' (Protocol in workflow.md)
+      if still missing) — was missing (confirmed via `gh secret list`);
+      user added it
+- [x] Task: Push this branch and confirm the new CI step passes on a
+      real GitHub Actions run — re-ran CI run `40184360079` after the
+      secret was added: all steps green, including `schemaRegistryCheck`
+      against the throwaway Apicurio container
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Real CI
+      wiring' (Protocol in workflow.md) — reduced-prompting mode: the
+      real CI run itself is the verification; no interactive walkthrough
