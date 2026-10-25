@@ -23,7 +23,7 @@
       verification only, no interactive walkthrough; see git note on
       `b4fc9b5`
 
-## Phase 2: Real CI wiring [checkpoint: TBD]
+## Phase 2: Real CI wiring [checkpoint: 3ca1df8]
 - [x] Task: Add the same `docker run` Apicurio CI step shape as
       order-service's `ci.yml` to this repo's `ci.yml` `4388854`
 - [x] Task: Confirm/arrange the `GH_PACKAGES_TOKEN` repo secret is in
