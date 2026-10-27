@@ -1,5 +1,6 @@
 package inventoryservice
 
+import cats.data.NonEmptyList
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
@@ -47,6 +48,20 @@ trait InventoryStore[F[_]] {
       orderItemId: String
   ): F[Either[InventoryError, Inventory]]
   def list(sku: Option[String]): F[List[Inventory]]
+
+  /** All-or-nothing bulk reserve (TD-7.1, ADR 0018), idempotent per `orderId`:
+    * if the order already has ledger lines they're returned unchanged and
+    * nothing more is reserved.
+    */
+  def reserveOrder(
+      command: ReserveOrder
+  ): F[Either[ReservationRejected, OrderReservation]]
+
+  /** Returns every active ledger line's quantity to `quantityAvailable` and
+    * marks it released (TD-7.2). Unknown or already-released `orderId` is a
+    * no-op, so compensation is safe to retry.
+    */
+  def releaseOrder(orderId: UUID): F[Unit]
   def ping: F[Boolean]
 }
 
@@ -54,8 +69,46 @@ object InventoryStore {
 
   private val defaultQuantityReserved = 0
 
+  private final case class LedgerLine(line: ReservationLine, active: Boolean)
+
+  /** One `Ref` over stock and ledger together, so a bulk reserve or release
+    * updates both atomically, as the Postgres transaction does.
+    */
+  private final case class InMemoryState(
+      inventory: Map[String, Inventory],
+      ledger: Map[UUID, List[LedgerLine]]
+  )
+
+  /** Applies a per-sku delta to available (and the opposite to reserved); skus
+    * absent from `entities` are left alone.
+    */
+  private def shiftStock(
+      entities: Map[String, Inventory],
+      lines: List[ReservationLine],
+      sign: Int,
+      now: java.time.Instant
+  ): Map[String, Inventory] = {
+    val bySku = lines.groupMapReduce(_.sku)(_.quantity)(_ + _)
+    entities.map { case (id, inv) =>
+      bySku.get(inv.sku) match {
+        case None      => id -> inv
+        case Some(qty) =>
+          id -> inv.copy(
+            quantityAvailable = inv.quantityAvailable - sign * qty,
+            quantityReserved = inv.quantityReserved + sign * qty,
+            updatedAt = now
+          )
+      }
+    }
+  }
+
   def inMemory[F[_]: Sync]: F[InventoryStore[F]] =
-    Ref.of[F, Map[String, Inventory]](Map.empty).map { ref =>
+    Ref.of[F, InMemoryState](InMemoryState(Map.empty, Map.empty)).map { state =>
+      // Existing CRUD methods keep operating on just the stock map.
+      val ref = Ref.lens[F, InMemoryState, Map[String, Inventory]](state)(
+        _.inventory,
+        s => inventory => s.copy(inventory = inventory)
+      )
       new InventoryStore[F] {
         def create(sku: String, quantityAvailable: Int): F[Inventory] =
           for {
@@ -134,6 +187,62 @@ object InventoryStore {
               case None         => entities.values.toList
               case Some(filter) =>
                 entities.values.filter(_.sku == filter).toList
+            }
+          }
+
+        def reserveOrder(
+            command: ReserveOrder
+        ): F[Either[ReservationRejected, OrderReservation]] =
+          Sync[F].realTimeInstant.flatMap { now =>
+            state.modify { current =>
+              val lines = command.items.toList
+              current.ledger.get(command.orderId) match {
+                case Some(existing) =>
+                  (
+                    current,
+                    Right(
+                      OrderReservation(command.orderId, existing.map(_.line))
+                    )
+                  )
+                case None =>
+                  val available =
+                    current.inventory.values
+                      .map(i => i.sku -> i.quantityAvailable)
+                      .toMap
+                  NonEmptyList.fromList(
+                    ReserveOrder.failures(lines, available)
+                  ) match {
+                    case Some(failures) =>
+                      (current, Left(ReservationRejected(failures)))
+                    case None =>
+                      (
+                        InMemoryState(
+                          shiftStock(current.inventory, lines, 1, now),
+                          current.ledger + (command.orderId -> lines.map(
+                            LedgerLine(_, active = true)
+                          ))
+                        ),
+                        Right(OrderReservation(command.orderId, lines))
+                      )
+                  }
+              }
+            }
+          }
+
+        def releaseOrder(orderId: UUID): F[Unit] =
+          Sync[F].realTimeInstant.flatMap { now =>
+            state.update { current =>
+              current.ledger.get(orderId) match {
+                case None        => current
+                case Some(lines) =>
+                  val active = lines.filter(_.active).map(_.line)
+                  InMemoryState(
+                    shiftStock(current.inventory, active, -1, now),
+                    current.ledger + (orderId -> lines.map(
+                      _.copy(active = false)
+                    ))
+                  )
+              }
             }
           }
 
@@ -554,6 +663,18 @@ object InventoryStore {
                       updatedAt.toInstant
                     )
                 })
+
+              def reserveOrder(
+                  command: ReserveOrder
+              ): F[Either[ReservationRejected, OrderReservation]] =
+                Async[F].raiseError(
+                  new UnsupportedOperationException("reserveOrder: not yet")
+                )
+
+              def releaseOrder(orderId: UUID): F[Unit] =
+                Async[F].raiseError(
+                  new UnsupportedOperationException("releaseOrder: not yet")
+                )
 
               def ping: F[Boolean] =
                 timed("ping") {

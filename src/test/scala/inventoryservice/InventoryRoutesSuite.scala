@@ -34,6 +34,12 @@ class InventoryRoutesSuite extends CatsEffectSuite {
           orderItemId: String
       ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
+      def reserveOrder(
+          command: ReserveOrder
+      ): IO[Either[ReservationRejected, OrderReservation]] =
+        IO.raiseError(error)
+      def releaseOrder(orderId: java.util.UUID): IO[Unit] =
+        IO.raiseError(error)
       def ping: IO[Boolean] = IO.raiseError(error)
     }
 
