@@ -24,3 +24,6 @@
   - [ ] Endpoint + wiring
 - [x] Task: `scripts/verify-order-reservations.sh` (real service + Postgres via docker compose) `a8ee168`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: REST endpoints' (Protocol in workflow.md) — prompt-off: verify-order-reservations.sh 25/25, 131 tests, coverage 86.15% stmt / 93.22% branch
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions `b57a11b`
