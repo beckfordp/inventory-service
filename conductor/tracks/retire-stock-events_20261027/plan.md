@@ -43,3 +43,6 @@
 - `schemaRegistryCheck` with zero channels must genuinely no-op; if the plugin errors on an empty list, keep a single placeholder? No — fall back to disabling the task in build.sbt only if it cannot no-op, and record the deviation.
 - Deleting registry artifacts is irreversible locally; the schemas are in git history (archived tracks) if they ever need reproducing.
 - The Debezium connector and `outbox_events` table stay inert by decision; no data deleted.
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions `2470df7` — removed an orphaned scaladoc left above `selectAllInventory`, dropped the now-unused `fs2-kafka` and `testcontainers-scala-kafka` dependencies (plus the version val), and corrected two stale doc examples (build.sbt's shared-group rationale, tech-stack's Messaging/Testing sections)
