@@ -1,0 +1,1 @@
+Task: release endpoint (TD-7.2). Files: OrderReservationRoutes.scala (always-204 endpoint, non-UUID no-op), OrderReservationRoutesSuite (restore once, repeat, unknown, non-UUID), InventoryDocsSuite (release path documented).
