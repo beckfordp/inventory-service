@@ -1,0 +1,8 @@
+{
+  "track_id": "order-reservations_20261027",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-10-27T16:40:51Z",
+  "updated_at": "2026-10-27T16:40:51Z",
+  "description": "Bulk order reservations + idempotent release with reservation ledger (TD-7.1/7.2, ADR 0018)"
+}
