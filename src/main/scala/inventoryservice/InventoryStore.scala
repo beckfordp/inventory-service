@@ -251,12 +251,6 @@ object InventoryStore {
       RETURNING id
     """.query(uuid)
 
-  /** Atomic check-and-reserve: the `WHERE ... AND quantity_available >= $qty`
-    * guard means Postgres's own row-level locking does the concurrency-safety
-    * work - no app-level transaction/lock needed. `$qty` is bound three times
-    * (decrement, increment, guard), so the caller passes the same value three
-    * times.
-    */
   private val selectAllInventory: skunk.Query[
     skunk.Void,
     (UUID, String, Int, Int, OffsetDateTime, OffsetDateTime)

@@ -12,7 +12,6 @@ val flywayVersion = "11.8.2"
 val postgresqlJdbcVersion = "42.7.13"
 val pureconfigVersion = "0.17.10"
 val testcontainersScalaVersion = "0.43.6"
-val fs2KafkaVersion = "3.6.0"
 // purekafka: Kafka resilience/observability combinators + AsyncAPI docs
 // support (ADR 0010). Pinned to match order-service's own version (0.3.0
 // adds purekafka.docs.SchemaRegistryWriter, Rework 5 step 3/ADR 0003).
@@ -80,7 +79,7 @@ lazy val root = project
     // per-service default, name.value) - confirmed live 2026-10-25 that
     // "one group per service" meant a producer's and a consumer's
     // registration of the *same* real topic/eventType contract (e.g.
-    // inventory-service producing inventory-events-StockReserved,
+    // payment-service producing payment-events-PaymentFailed,
     // order-service consuming it) landed in two totally independent
     // groups/version-lineages, so the BACKWARD compatibility check never
     // actually compared them against each other - exactly the
@@ -121,11 +120,8 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
       // skunk: non-blocking, pure-FP Postgres access — this service's persistence layer.
       "org.tpolecat" %% "skunk-core" % skunkVersion,
-      // fs2-kafka: pure-FP, FS2-native Kafka producer (publish-only; this
-      // service has no consumer).
-      "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,
-      // purekafka: AsyncAPI documentation support for this service's
-      // published inventory-events channel (ADR 0010).
+      // purekafka: AsyncAPI documentation support (ADR 0010) — the channel
+      // list is empty since TD-7.5, kept for future inventory events.
       "io.github.beckfordp" %% "purekafka" % purekafkaVersion,
       // flyway: JDBC-based schema migration tool, run on startup to create/update the
       // inventory table. Independent of Skunk (which handles all runtime queries).
@@ -144,7 +140,6 @@ lazy val root = project
       // testcontainers-scala: spins up a real, ephemeral Postgres container for
       // integration tests (not used by main code).
       "com.dimafeng" %% "testcontainers-scala-postgresql" % testcontainersScalaVersion % Test,
-      "com.dimafeng" %% "testcontainers-scala-kafka" % testcontainersScalaVersion % Test,
       "com.dimafeng" %% "testcontainers-scala-munit" % testcontainersScalaVersion % Test,
       // log4cats-testing: purerestlib keeps this Test-scoped (doesn't propagate to
       // consumers), so this service declares its own copy to assert on log output
