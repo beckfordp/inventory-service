@@ -13,7 +13,7 @@
 - [x] Task: `reserveOrder` / `releaseOrder` postgres interpreter `491116a`
   - [ ] Testcontainers tests mirroring in-memory + concurrency (no oversell) + duplicate concurrent same-orderId
   - [ ] Implement: advisory xact lock, `FOR UPDATE ORDER BY sku`, aggregate check, updates + ledger inserts; release in one tx
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Ledger + store' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Ledger + store' (Protocol in workflow.md) — prompt-off: 119 tests pass, coverage 87.37% stmt / 94.12% branch
 
 ## Phase 2: REST endpoints
 - [ ] Task: `POST /inventorys/order-reservations`
