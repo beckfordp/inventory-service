@@ -1,7 +1,7 @@
 # Plan: order-reservations_20261027
 
 ## Phase 1: Ledger + store
-- [ ] Task: V4 migration `order_reservations` ledger
+- [x] Task: V4 migration `order_reservations` ledger `0695169`
   - [ ] Write MigrationsSuite test (table, PK, check constraints) — red
   - [ ] Add `V4__create_order_reservations.sql` — green
 - [ ] Task: Domain types + `OrderReservationError` ADT
