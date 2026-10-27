@@ -178,9 +178,44 @@ object OrderReservationRoutes {
       } yield result
     }
 
+  private val releaseOrderEndpoint: PublicEndpoint[String, Unit, Unit, Any] =
+    endpoint.post
+      .in(
+        "inventorys" / "order-reservations" / path[String](
+          "orderId"
+        ) / "release"
+      )
+      .out(statusCode(StatusCode.NoContent))
+
+  /** Always `204`: an unknown, already-released or non-UUID `orderId` holds
+    * nothing, so there is nothing to release — compensation stays safe to
+    * retry.
+    */
+  def releaseOrderServerEndpoint[F[_]: Async](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): ServerEndpoint[Any, F] =
+    releaseOrderEndpoint.serverLogicSuccess[F] { orderId =>
+      val context = Map("order_id" -> orderId)
+      for {
+        _ <- logger.info(
+          Map(
+            "method" -> "POST",
+            "path" -> s"/inventorys/order-reservations/$orderId/release"
+          ) ++ context
+        )("Received request")
+        _ <- Try(UUID.fromString(orderId)).toOption
+          .traverse_(store.releaseOrder)
+        _ <- logger.info(context)("Request completed")
+      } yield ()
+    }
+
   def serverEndpoints[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): List[ServerEndpoint[Any, F]] =
-    List(reserveOrderServerEndpoint(store, logger))
+    List(
+      reserveOrderServerEndpoint(store, logger),
+      releaseOrderServerEndpoint(store, logger)
+    )
 }

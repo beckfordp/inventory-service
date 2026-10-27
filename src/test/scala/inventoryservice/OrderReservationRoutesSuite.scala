@@ -148,4 +148,50 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
       }
     }
   }
+
+  private def release(routes: HttpRoutes[IO], id: String) =
+    routes.orNotFound.run(
+      Request[IO](
+        Method.POST,
+        uri"/inventorys/order-reservations" / id / "release"
+      )
+    )
+
+  private def available(routes: HttpRoutes[IO], sku: String) =
+    routes.orNotFound
+      .run(
+        Request[IO](Method.GET, uri"/inventorys".withQueryParam("sku", sku))
+      )
+      .flatMap(_.as[List[InventoryResponse]])
+      .map(_.map(i => (i.quantityAvailable, i.quantityReserved)))
+
+  test(
+    "POST .../{orderId}/release returns 204 and restores stock exactly once"
+  ) {
+    for {
+      routes <- setup("sku-a" -> 5)
+      _ <- reserve(routes, body(orderId, (itemA, "sku-a", 2)))
+      first <- release(routes, orderId)
+      afterFirst <- available(routes, "sku-a")
+      second <- release(routes, orderId)
+      afterSecond <- available(routes, "sku-a")
+    } yield {
+      assertEquals(first.status, Status.NoContent)
+      assertEquals(second.status, Status.NoContent)
+      assertEquals(afterFirst, List((5, 0)))
+      assertEquals(afterSecond, List((5, 0)))
+    }
+  }
+
+  test("POST .../{orderId}/release returns 204 for an unknown orderId") {
+    setup().flatMap(release(_, UUID.randomUUID().toString)).map { response =>
+      assertEquals(response.status, Status.NoContent)
+    }
+  }
+
+  test("POST .../{orderId}/release returns 204 for a non-UUID orderId") {
+    setup().flatMap(release(_, "not-a-uuid")).map { response =>
+      assertEquals(response.status, Status.NoContent)
+    }
+  }
 }

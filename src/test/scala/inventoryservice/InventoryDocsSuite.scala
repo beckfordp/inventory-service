@@ -47,6 +47,11 @@ class InventoryDocsSuite extends CatsEffectSuite {
     } yield {
       assert(clue(docsBody).contains("/inventorys/order-reservations:"))
       assert(clue(docsBody).contains("'409':"))
+      assert(
+        clue(docsBody).contains(
+          "/inventorys/order-reservations/{orderId}/release:"
+        )
+      )
     }
   }
 }
