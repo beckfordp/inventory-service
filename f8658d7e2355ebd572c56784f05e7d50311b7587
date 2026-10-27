@@ -1,0 +1,1 @@
+Phase 2 verification (prompt-off): scripts/verify-order-reservations.sh all 25 checks passed against real service + Postgres; sbt test 131 passed; coverage 86.15% stmt / 93.22% branch (OrderReservationRoutes 80%: 409 client-decode path unexercised by server).
