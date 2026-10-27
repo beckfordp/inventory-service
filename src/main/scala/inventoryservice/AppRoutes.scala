@@ -39,8 +39,6 @@ object AppRoutes {
         InventoryRoutes
           .deleteInventoryServerEndpoint[F](store, telemetry.logger),
         InventoryRoutes
-          .reserveInventoryServerEndpoint[F](store, telemetry.logger),
-        InventoryRoutes
           .listInventoryServerEndpoint[F](store, telemetry.logger)
       ) ++ OrderReservationRoutes
         .serverEndpoints[F](store, telemetry.logger) ++ List(

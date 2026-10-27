@@ -79,60 +79,6 @@ class InventoryStoreSuite extends CatsEffectSuite {
     } yield assert(!deleted)
   }
 
-  test(
-    "reserve decrements quantityAvailable and increments quantityReserved on success"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      _ <- store.create("sku-widget-1", 100)
-      result <- store.reserve("sku-widget-1", 30, "order-item-1")
-    } yield result match {
-      case Right(entity) =>
-        assertEquals(entity.quantityAvailable, 70)
-        assertEquals(entity.quantityReserved, 30)
-      case Left(error) =>
-        fail(s"expected a successful reservation, got: $error")
-    }
-  }
-
-  test(
-    "reserve returns InsufficientStock when quantity exceeds quantityAvailable"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      _ <- store.create("sku-widget-1", 10)
-      result <- store.reserve("sku-widget-1", 20, "order-item-1")
-    } yield assertEquals(result, Left(InsufficientStock))
-  }
-
-  test("reserve returns InventoryNotFound for an unknown sku") {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      result <- store.reserve("unknown-sku", 10, "order-item-1")
-    } yield assertEquals(result, Left(InventoryNotFound))
-  }
-
-  test("reserve returns InvalidQuantity for a zero or negative quantity") {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      _ <- store.create("sku-widget-1", 100)
-      zero <- store.reserve("sku-widget-1", 0, "order-item-1")
-      negative <- store.reserve("sku-widget-1", -5, "order-item-1")
-    } yield {
-      assertEquals(zero, Left(InvalidQuantity))
-      assertEquals(negative, Left(InvalidQuantity))
-    }
-  }
-
-  test("reserve with an invalid quantity makes no mutation") {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      created <- store.create("sku-widget-1", 100)
-      _ <- store.reserve("sku-widget-1", -5, "order-item-1")
-      after <- store.get(created.id)
-    } yield assertEquals(after, Some(created))
-  }
-
   test("list with no filter returns every created entity") {
     for {
       store <- InventoryStore.inMemory[IO]

@@ -17,12 +17,12 @@
 ## API layer
 - tapir 1.11.25 — route definitions and generated Swagger/OpenAPI docs
   (`purerest.docs.Docs`), served at `/docs`, kept in sync by construction
-- purekafka.docs (`AsyncApiChannel`/`Docs`) — generates AsyncAPI documentation
+- purekafka.docs (`AsyncApiChannel`/`Docs`) — AsyncAPI documentation wiring
   for this service's Kafka event contracts (`AsyncApiChannels`), served at
-  `/docs/asyncapi.json` (raw spec) and `/docs/asyncapi` (rendered static HTML)
-  — same tapir-OpenAPI pattern, for the Kafka side. Generation handled by the
-  `sbt-purekafka-docs` plugin, auto-chained after `Compile / compile` — no
-  manual script needed (ADR 0010).
+  `/docs/asyncapi.json`. Since TD-7.5 retired the only two events, the
+  channel list is empty and build-time spec/HTML generation is disabled via
+  a `build.sbt` override (the AsyncAPI validator rejects a document with no
+  channels); the raw route still serves.
 - `schemaRegistryCheck` (sbt-purekafka-docs, Rework 5 step 3/ADR 0003) —
   reuses the same `AsyncApiChannels` registrations to check/register each
   event's JSON Schema against Apicurio Registry, run explicitly (not
@@ -33,10 +33,6 @@
 
 ## Persistence
 - skunk 1.0.0 — pure-FP, non-blocking Postgres access (runtime queries)
-- skunk-circe 1.0.0 (added 2026-10-12, TD-3.3/ADR 0008 outbox track) —
-  `Codec[Json]` for the new `outbox_events.payload` jsonb column, the first
-  jsonb column in this service. No other option considered: this is the
-  idiomatic skunk↔circe bridge, same org/version as `skunk-core`.
 - Flyway 11.8.2 (+ flyway-database-postgresql) — schema migrations on startup
 - postgresql JDBC 42.7.13 — Flyway-only (runtime scope), never used directly
   in application code

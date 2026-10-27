@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verifies inventory-service's schemaRegistryCheck sbt task end-to-end
-# (Rework 5 step 3, ADR 0003) against the real local Apicurio Registry
-# instance (gluon's infra/k8s/local-infra). Mirrors order-service's own
-# equivalent script - exercises the real production AsyncApiChannels
-# registrations in AsyncApiChannels.scala, registering both of this
-# service's actual event schemas under the real "inventory-service" group.
+# Verifies inventory-service's schemaRegistryCheck after TD-7.5 retired its
+# only two events (StockReserved/StockReservationFailed) and their registry
+# artifacts. Mirrors the other services' scripts: runs the real
+# AsyncApiChannels registrations through the sbt task against the real local
+# Apicurio instance (gluon's infra/k8s/local-infra), under the shared "gluon"
+# group.
 #
-# Proves: a run registers both channels and sets a BACKWARD compatibility
-# rule on each (first time only); a second identical run is a no-op (no
-# error).
+# Proves: the task succeeds with an empty channel list (a no-op); the retired
+# artifacts are gone from the registry; a second run is still a no-op.
 #
 # Requires GITHUB_ACTOR/GITHUB_TOKEN (read:packages) to resolve
 # sbt-purekafka-docs from GitHub Packages - derived here from `gh auth
@@ -26,7 +25,7 @@ export GITHUB_TOKEN="${GITHUB_TOKEN:-$(gh auth token)}"
 
 FAILED=0
 
-echo "1. First run (registers both channels + sets the BACKWARD rule)..."
+echo "1. First run (empty channel list - should be a successful no-op)..."
 if sbt --error schemaRegistryCheck; then
   echo "   OK: first run succeeded"
 else
@@ -35,20 +34,20 @@ else
 fi
 
 echo
-echo "2. Checking the registry directly for both registered artifacts..."
-ARTIFACTS_URL="http://apicurio-registry.gluon-local.svc.cluster.local:8080/apis/registry/v3/groups/inventory-service/artifacts"
+echo "2. Checking the registry no longer has the retired stock-event artifacts..."
+ARTIFACTS_URL="http://apicurio-registry.gluon-local.svc.cluster.local:8080/apis/registry/v3/groups/gluon/artifacts?limit=100"
 RESPONSE="$(curl -s "$ARTIFACTS_URL")"
-for needle in "inventory-events-StockReserved" "inventory-events-StockReservationFailed"; do
-  if ! echo "$RESPONSE" | grep -q "$needle"; then
-    echo "FAIL: registry missing expected artifact: ${needle}" >&2
+for retired in "inventory-events-StockReserved" "inventory-events-StockReservationFailed"; do
+  if echo "$RESPONSE" | grep -q "$retired"; then
+    echo "FAIL: registry still contains retired artifact: ${retired}" >&2
     FAILED=1
   else
-    echo "   OK: registry contains artifact \"${needle}\""
+    echo "   OK: registry does not contain \"${retired}\""
   fi
 done
 
 echo
-echo "3. Second, identical run (should be a no-op, not an error)..."
+echo "3. Second, identical run (should still be a no-op, not an error)..."
 if sbt --error schemaRegistryCheck; then
   echo "   OK: second run succeeded"
 else

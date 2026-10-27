@@ -28,16 +28,6 @@ object UpdateInventoryRequest {
   implicit val codec: Codec[UpdateInventoryRequest] = deriveCodec
 }
 
-final case class ReserveInventoryRequest(
-    sku: String,
-    quantity: Int,
-    orderItemId: String
-)
-
-object ReserveInventoryRequest {
-  implicit val codec: Codec[ReserveInventoryRequest] = deriveCodec
-}
-
 final case class InventoryResponse(
     id: String,
     sku: String,
@@ -140,43 +130,6 @@ object InventoryRoutes {
       .in("inventorys")
       .in(query[Option[String]]("sku"))
       .out(jsonBody[List[InventoryResponse]])
-
-  private val reserveErrorOutput: EndpointOutput[InventoryError] =
-    oneOf[InventoryError](
-      oneOfVariantValueMatcher(
-        statusCode(StatusCode.NotFound)
-          .and(jsonBody[ErrorResponse])
-          .map[InventoryError](_ => InventoryNotFound)(_ =>
-            ErrorResponse("Inventory not found")
-          )
-      ) { case InventoryNotFound => true },
-      oneOfVariantValueMatcher(
-        statusCode(StatusCode.Conflict)
-          .and(jsonBody[ErrorResponse])
-          .map[InventoryError](_ => InsufficientStock)(_ =>
-            ErrorResponse("Insufficient stock")
-          )
-      ) { case InsufficientStock => true },
-      oneOfVariantValueMatcher(
-        statusCode(StatusCode.BadRequest)
-          .and(jsonBody[ErrorResponse])
-          .map[InventoryError](_ => InvalidQuantity)(_ =>
-            ErrorResponse("quantity must be positive")
-          )
-      ) { case InvalidQuantity => true }
-    )
-
-  private val reserveInventoryEndpoint: PublicEndpoint[
-    ReserveInventoryRequest,
-    InventoryError,
-    InventoryResponse,
-    Any
-  ] =
-    endpoint.post
-      .in("inventorys" / "reservations")
-      .in(jsonBody[ReserveInventoryRequest])
-      .out(jsonBody[InventoryResponse])
-      .errorOut(reserveErrorOutput)
 
   def serverEndpoint[F[_]: Async](
       store: InventoryStore[F],
@@ -304,39 +257,6 @@ object InventoryRoutes {
       } yield result
     }
 
-  /** Reserve outcomes are no longer published here at all (ADR 0008, TD-3.3) —
-    * `store.reserve` writes the matching outbox row atomically with its own
-    * state change (or, for `InsufficientStock`, as a standalone insert).
-    */
-  def reserveInventoryServerEndpoint[F[_]: Async](
-      store: InventoryStore[F],
-      logger: StructuredLogger[F]
-  ): ServerEndpoint[Any, F] =
-    reserveInventoryEndpoint.serverLogic[F] { req =>
-      for {
-        _ <- logger.info(
-          Map(
-            "method" -> "POST",
-            "path" -> "/inventorys/reservations",
-            "sku" -> req.sku
-          )
-        )("Received request")
-        reserveResult <- store.reserve(req.sku, req.quantity, req.orderItemId)
-        result <- reserveResult match {
-          case Right(entity) =>
-            logger
-              .info(Map("inventory_id" -> entity.id))("Request completed")
-              .as(Right(InventoryResponse(entity)))
-          case Left(error) =>
-            logger
-              .warn(Map("sku" -> req.sku, "error" -> error.toString))(
-                "Reservation failed"
-              )
-              .as(Left(error))
-        }
-      } yield result
-    }
-
   def listInventoryServerEndpoint[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
@@ -367,7 +287,6 @@ object InventoryRoutes {
         updateInventoryServerEndpoint(store, logger),
         replaceInventoryServerEndpoint(store, logger),
         deleteInventoryServerEndpoint(store, logger),
-        reserveInventoryServerEndpoint(store, logger),
         listInventoryServerEndpoint(store, logger)
       ) ++ OrderReservationRoutes.serverEndpoints(store, logger)
     )

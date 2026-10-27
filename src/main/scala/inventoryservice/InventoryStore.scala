@@ -5,11 +5,9 @@ import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
 import fs2.io.net.Network
-import io.circe.syntax._
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
 import skunk.Session
-import skunk.circe.codec.all.jsonb
 import skunk.codec.all._
 import skunk.implicits._
 
@@ -35,18 +33,6 @@ trait InventoryStore[F[_]] {
       quantityReserved: Int
   ): F[Option[Inventory]]
   def delete(id: String): F[Boolean]
-
-  /** `orderItemId` both correlates this call's outcome with the right
-    * order-service line item and becomes the outbox row's `aggregate_id`/
-    * `correlationId` (ADR 0008, TD-3.3) — the same field already carried on the
-    * request (`ReserveInventoryRequest`), just no longer thrown away before
-    * reaching the store.
-    */
-  def reserve(
-      sku: String,
-      quantity: Int,
-      orderItemId: String
-  ): F[Either[InventoryError, Inventory]]
   def list(sku: Option[String]): F[List[Inventory]]
 
   /** All-or-nothing bulk reserve (TD-7.1, ADR 0018), idempotent per `orderId`:
@@ -155,32 +141,6 @@ object InventoryStore {
             if (entities.contains(id)) (entities - id, true)
             else (entities, false)
           }
-
-        def reserve(
-            sku: String,
-            quantity: Int,
-            orderItemId: String
-        ): F[Either[InventoryError, Inventory]] =
-          if (quantity <= 0) Sync[F].pure(Left(InvalidQuantity))
-          else
-            for {
-              now <- Sync[F].realTimeInstant
-              result <- ref.modify { entities =>
-                entities.values.find(_.sku == sku) match {
-                  case None => (entities, Left(InventoryNotFound))
-                  case Some(existing)
-                      if existing.quantityAvailable < quantity =>
-                    (entities, Left(InsufficientStock))
-                  case Some(existing) =>
-                    val next = existing.copy(
-                      quantityAvailable = existing.quantityAvailable - quantity,
-                      quantityReserved = existing.quantityReserved + quantity,
-                      updatedAt = now
-                    )
-                    (entities + (next.id -> next), Right(next))
-                }
-              }
-            } yield result
 
         def list(sku: Option[String]): F[List[Inventory]] =
           ref.get.map { entities =>
@@ -297,33 +257,6 @@ object InventoryStore {
     * (decrement, increment, guard), so the caller passes the same value three
     * times.
     */
-  private val reserveInventory: skunk.Query[
-    (Int, Int, String, Int),
-    (UUID, Int, Int, OffsetDateTime, OffsetDateTime)
-  ] =
-    sql"""
-      UPDATE "inventory"
-      SET quantity_available = quantity_available - $int4,
-          quantity_reserved = quantity_reserved + $int4,
-          updated_at = now()
-      WHERE sku = $text AND quantity_available >= $int4
-      RETURNING id, quantity_available, quantity_reserved, created_at, updated_at
-    """.query(uuid *: int4 *: int4 *: timestamptz *: timestamptz)
-
-  /** ADR 0008 (TD-3.3): the outbox row this service writes instead of calling a
-    * Kafka producer directly. `payload` holds the complete, already-assembled
-    * `EventEnvelope` JSON — not just the inner event — so nothing downstream (a
-    * future Debezium Outbox Event Router SMT) needs to synthesize
-    * `eventId`/`timestamp`/`source` itself.
-    */
-  private val insertOutboxEvent: skunk.Command[
-    (UUID, String, io.circe.Json, Option[String], String)
-  ] =
-    sql"""
-      INSERT INTO "outbox_events" (id, aggregate_id, payload, trace_parent, correlation_id)
-      VALUES ($uuid, $text, $jsonb, ${text.opt}, $text)
-    """.command
-
   private val selectAllInventory: skunk.Query[
     skunk.Void,
     (UUID, String, Int, Int, OffsetDateTime, OffsetDateTime)
@@ -342,13 +275,6 @@ object InventoryStore {
       FROM "inventory"
       WHERE sku = $text
     """.query(uuid *: text *: int4 *: int4 *: timestamptz *: timestamptz)
-
-  private val selectIdBySku: skunk.Query[String, UUID] =
-    sql"""
-      SELECT id
-      FROM "inventory"
-      WHERE sku = $text
-    """.query(uuid)
 
   /** Serialises concurrent bulk reserves/releases for one `orderId`, so a
     * duplicate request waits and then sees the first one's ledger lines.
@@ -565,125 +491,6 @@ object InventoryStore {
                       }
                     }
                 }
-
-              /** Builds and inserts the outbox row for a reserve outcome (ADR
-                * 0008, TD-3.3) - `aggregate_id`/`correlationId` is
-                * `orderItemId`, matching `system-design.md`'s documented
-                * `inventory-events` partition key (not `sku`, which is what the
-                * now-deleted `StockEventPublisher` actually keyed Kafka records
-                * by - a drift this track corrects). `payload` is the complete
-                * envelope, not just the inner event, so no downstream SMT needs
-                * to synthesize `eventId`/`timestamp`/ `source` itself.
-                */
-              def writeOutboxEvent(
-                  session: Session[F],
-                  eventType: String,
-                  orderItemId: String,
-                  eventPayload: io.circe.Json
-              ): F[Unit] =
-                for {
-                  id <- Sync[F].delay(UUID.randomUUID())
-                  now <- Sync[F].realTimeInstant
-                  envelope = EventEnvelope(
-                    eventId = id.toString,
-                    eventType = eventType,
-                    timestamp = now,
-                    source = "inventory-service",
-                    correlationId = orderItemId,
-                    payload = eventPayload
-                  )
-                  _ <- session
-                    .prepare(insertOutboxEvent)
-                    .flatMap(
-                      _.execute(
-                        (id, orderItemId, envelope.asJson, None, orderItemId)
-                      )
-                    )
-                } yield ()
-
-              def reserve(
-                  sku: String,
-                  quantity: Int,
-                  orderItemId: String
-              ): F[Either[InventoryError, Inventory]] =
-                if (quantity <= 0)
-                  (Left(
-                    InvalidQuantity
-                  ): Either[InventoryError, Inventory]).pure[F]
-                else
-                  timed("reserve") {
-                    pool.use { session =>
-                      session.transaction.use { _ =>
-                        session
-                          .prepare(reserveInventory)
-                          .flatMap(
-                            _.option((quantity, quantity, sku, quantity))
-                          )
-                          .flatMap {
-                            case Some(
-                                  (
-                                    id,
-                                    quantityAvailable,
-                                    quantityReserved,
-                                    createdAt,
-                                    updatedAt
-                                  )
-                                ) =>
-                              for {
-                                now <- Async[F].realTimeInstant
-                                _ <- writeOutboxEvent(
-                                  session,
-                                  "StockReserved",
-                                  orderItemId,
-                                  StockReservedEvent(
-                                    orderItemId,
-                                    sku,
-                                    quantity,
-                                    now
-                                  ).asJson
-                                )
-                              } yield (Right(
-                                Inventory(
-                                  id.toString,
-                                  sku,
-                                  quantityAvailable,
-                                  quantityReserved,
-                                  createdAt.toInstant,
-                                  updatedAt.toInstant
-                                )
-                              ): Either[InventoryError, Inventory])
-                            case None =>
-                              session
-                                .prepare(selectIdBySku)
-                                .flatMap(_.option(sku))
-                                .flatMap {
-                                  case Some(_) =>
-                                    for {
-                                      now <- Async[F].realTimeInstant
-                                      _ <- writeOutboxEvent(
-                                        session,
-                                        "StockReservationFailed",
-                                        orderItemId,
-                                        StockReservationFailedEvent(
-                                          orderItemId,
-                                          sku,
-                                          quantity,
-                                          now
-                                        ).asJson
-                                      )
-                                    } yield (Left(
-                                      InsufficientStock
-                                    ): Either[InventoryError, Inventory])
-                                  case None =>
-                                    (Left(
-                                      InventoryNotFound
-                                    ): Either[InventoryError, Inventory])
-                                      .pure[F]
-                                }
-                          }
-                      }
-                    }
-                  }
 
               def list(sku: Option[String]): F[List[Inventory]] =
                 timed("list") {

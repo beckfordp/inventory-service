@@ -10,7 +10,7 @@ import purerest.docs.Docs
 
 class InventoryAsyncApiDocsSuite extends CatsEffectSuite {
 
-  test("GET /docs/asyncapi.json returns 200 with both event types") {
+  test("GET /docs/asyncapi.json returns 200 with no retired event types") {
     val routes =
       AsyncApiDocs.routes[IO](
         "Inventory Service",
@@ -24,8 +24,8 @@ class InventoryAsyncApiDocsSuite extends CatsEffectSuite {
       body <- response.bodyText.compile.string
     } yield {
       assertEquals(response.status, Status.Ok)
-      assert(clue(body).contains("StockReserved"))
-      assert(clue(body).contains("StockReservationFailed"))
+      assert(!clue(body).contains("StockReserved"))
+      assert(!clue(body).contains("StockReservationFailed"))
     }
   }
 

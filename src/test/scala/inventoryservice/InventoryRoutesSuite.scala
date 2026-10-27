@@ -28,11 +28,6 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       ): IO[Option[Inventory]] =
         IO.raiseError(error)
       def delete(id: String): IO[Boolean] = IO.raiseError(error)
-      def reserve(
-          sku: String,
-          quantity: Int,
-          orderItemId: String
-      ): IO[Either[InventoryError, Inventory]] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def reserveOrder(
           command: ReserveOrder
@@ -460,123 +455,25 @@ class InventoryRoutesSuite extends CatsEffectSuite {
     }
   }
 
-  test(
-    "POST /inventorys/reservations returns 200 with the updated entity on success"
-  ) {
+  test("POST /inventorys/reservations is gone (TD-7.5)") {
     for {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
-      postResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 100)
-        )
-      )
-      created <- postResponse.as[InventoryResponse]
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 30, "item-1"))
-      )
-      reserved <- reserveResponse.as[InventoryResponse]
-    } yield {
-      assertEquals(reserveResponse.status, Status.Ok)
-      assertEquals(reserved.id, created.id)
-      assertEquals(reserved.quantityAvailable, 70)
-      assertEquals(reserved.quantityReserved, 30)
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations returns 409 with a JSON error body when quantity exceeds available"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 10)
-        )
-      )
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 20, "item-1"))
-      )
-      body <- reserveResponse.as[io.circe.Json]
-    } yield {
-      assertEquals(reserveResponse.status, Status.Conflict)
-      assert(
-        body.asObject.exists(_.contains("error")),
-        s"expected a JSON error body, got: $body"
-      )
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations returns 404 with a JSON error body for an unknown sku"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("unknown-sku", 10, "item-1"))
-      )
-      body <- reserveResponse.as[io.circe.Json]
-    } yield {
-      assertEquals(reserveResponse.status, Status.NotFound)
-      assert(
-        body.asObject.exists(_.contains("error")),
-        s"expected a JSON error body, got: $body"
-      )
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations returns 400 with a JSON error body for a zero or negative quantity"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 100)
-        )
-      )
-      reserveResponse <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys/reservations")
-          .withEntity(ReserveInventoryRequest("sku-widget-1", 0, "item-1"))
-      )
-      body <- reserveResponse.as[io.circe.Json]
-    } yield {
-      assertEquals(reserveResponse.status, Status.BadRequest)
-      assert(
-        body.asObject.exists(_.contains("error")),
-        s"expected a JSON error body, got: $body"
-      )
-    }
-  }
-
-  test(
-    "POST /inventorys/reservations returns 400 when orderItemId is missing"
-  ) {
-    for {
-      store <- InventoryStore.inMemory[IO]
-      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
-      _ <- routes.orNotFound.run(
-        Request[IO](Method.POST, uri"/inventorys").withEntity(
-          CreateInventoryRequest("sku-widget-1", 100)
-        )
-      )
-      reserveResponse <- routes.orNotFound.run(
+      response <- routes.orNotFound.run(
         Request[IO](Method.POST, uri"/inventorys/reservations")
           .withEntity(
             io.circe.Json.obj(
               "sku" -> io.circe.Json.fromString("sku-widget-1"),
-              "quantity" -> io.circe.Json.fromInt(30)
+              "quantity" -> io.circe.Json.fromInt(30),
+              "orderItemId" -> io.circe.Json.fromString("item-1")
             )
           )
       )
     } yield {
-      assertEquals(reserveResponse.status, Status.BadRequest)
+      // The retired path now falls through to GET /inventorys/{id} (with
+      // id = "reservations"), so http4s reports method-not-allowed rather
+      // than 404. The endpoint itself is gone either way.
+      assertEquals(response.status, Status.MethodNotAllowed)
     }
   }
 

@@ -1,19 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verifies inventory-service's AsyncAPI documentation end-to-end, generated
-# via the sbt-purekafka-docs plugin (asyncApiGenerateSpec/asyncApiGenerate,
-# auto-chained after Compile/compile) — generation needs no running server at
-# all, since AsyncApiSpecWriter reads AsyncApiChannels directly via
-# reflection rather than curling a live HTTP route. Confirms both registered
-# event types show up in the generated spec/HTML *and* the live-served raw
-# spec + static HTML routes, so both halves (build-time generation and
-# runtime serving) are checked, not just that a process started or a task
-# exited 0. Adapted from order-service's own verify-kafka-asyncapi-docs.sh
-# (asyncapi-docs_20261017 track).
-#
-# No order-service involved — inventory-service's AsyncAPI docs only depend
-# on its own registered published events, not on any live cross-service call.
+# Verifies inventory-service's AsyncAPI surface after TD-7.5 retired its only
+# two events. With AsyncApiChannels empty:
+#   - build-time spec/HTML generation is deliberately disabled (build.sbt's
+#     asyncApiGenerate override — the AsyncAPI validator rejects a document
+#     with no channels), so no spec or HTML files are produced;
+#   - the live /docs/asyncapi.json route still serves a 200 with no retired
+#     event types in it.
 #
 # Usage: ./scripts/verify-kafka-asyncapi-docs.sh
 
@@ -42,35 +36,22 @@ wait_ready() {
   return 1
 }
 
-echo "1. sbt asyncApiGenerate (no server needed - AsyncApiSpecWriter reads AsyncApiChannels directly)..."
-sbt asyncApiGenerate
+echo "1. sbt asyncApiGenerate (empty channel list — should succeed and produce no spec)..."
+if sbt asyncApiGenerate; then
+  echo "   OK: task succeeded"
+else
+  echo "FAIL: asyncApiGenerate should succeed with an empty channel list (via the build.sbt override)" >&2
+  FAILED=1
+fi
+if [ -f "target/asyncapi-docs-spec/asyncapi.json" ]; then
+  echo "FAIL: expected no generated spec while there are no channels" >&2
+  FAILED=1
+else
+  echo "   OK: no generated spec"
+fi
 
 echo
-echo "2. Checking the generated raw spec for both registered event types..."
-SPEC_FILE="target/asyncapi-docs-spec/asyncapi.json"
-for needle in "inventory-events" "StockReserved" "StockReservationFailed"; do
-  if ! grep -q "$needle" "$SPEC_FILE"; then
-    echo "FAIL: generated spec missing expected content: ${needle}" >&2
-    FAILED=1
-  else
-    echo "   OK: generated spec contains \"${needle}\""
-  fi
-done
-
-echo
-echo "3. Checking the generated static HTML for the same content..."
-HTML_FILE="target/asyncapi-docs/index.html"
-for needle in "StockReserved" "StockReservationFailed"; do
-  if ! grep -q "$needle" "$HTML_FILE"; then
-    echo "FAIL: generated HTML missing expected content: ${needle}" >&2
-    FAILED=1
-  else
-    echo "   OK: generated HTML contains \"${needle}\""
-  fi
-done
-
-echo
-echo "4. docker compose up -d (fresh volumes, postgres + kafka)..."
+echo "2. docker compose up -d (fresh volumes, postgres + kafka)..."
 docker compose down -v >/dev/null 2>&1 || true
 docker compose up -d
 echo "   waiting for postgres to be healthy..."
@@ -81,31 +62,23 @@ for _ in $(seq 1 60); do
 done
 
 echo
-echo "5. Starting inventory-service (sbt run)..."
+echo "3. Starting inventory-service (sbt run)..."
 sbt run >/tmp/inventory-service-asyncapi-verify.log 2>&1 &
 SBT_PID=$!
 wait_ready
 echo "   OK: inventory-service ready on :8080"
 
 echo
-echo "6. Checking the live raw-spec route (/docs/asyncapi.json) for the same content..."
-for needle in "StockReserved" "StockReservationFailed"; do
-  if ! curl -s "${INVENTORY_SERVICE_URL}/docs/asyncapi.json" | grep -q "$needle"; then
-    echo "FAIL: live raw-spec route missing expected content: ${needle}" >&2
+echo "4. Checking the live raw-spec route (/docs/asyncapi.json) has no retired events..."
+SPEC="$(curl -s "${INVENTORY_SERVICE_URL}/docs/asyncapi.json")"
+for retired in "StockReserved" "StockReservationFailed"; do
+  if echo "$SPEC" | grep -q "$retired"; then
+    echo "FAIL: live spec still mentions retired event ${retired}" >&2
     FAILED=1
   else
-    echo "   OK: live raw-spec route contains \"${needle}\""
+    echo "   OK: live spec does not mention \"${retired}\""
   fi
 done
-
-echo
-echo "7. Checking the live static HTML route (/docs/asyncapi/) for the same content..."
-if ! curl -s "${INVENTORY_SERVICE_URL}/docs/asyncapi/index.html" | grep -q "StockReserved"; then
-  echo "FAIL: live static HTML route missing expected content: StockReserved" >&2
-  FAILED=1
-else
-  echo "   OK: live static HTML route contains \"StockReserved\""
-fi
 
 echo
 if [ "$FAILED" -eq 0 ]; then

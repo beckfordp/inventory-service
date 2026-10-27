@@ -53,6 +53,19 @@ lazy val root = project
     asyncApiChannelsClass := "inventoryservice.AsyncApiChannels",
     asyncApiTitle := "Inventory Service",
     asyncApiVersion := "1.0",
+    // TD-7.5 retired inventory-service's only Kafka events, leaving
+    // AsyncApiChannels empty. sbt-purekafka-docs' AsyncAPI validation
+    // rejects a document with no channels, and it auto-chains after
+    // Compile/compile, so disable that build-time generation explicitly:
+    // create the output dir empty, which also leaves Universal/mappings
+    // with nothing to bake into the image. The live /docs/asyncapi.json
+    // route still serves the (empty) channel list. Remove this override if
+    // the service ever publishes an event again.
+    asyncApiGenerate := {
+      val dir = target.value / "asyncapi-docs"
+      IO.createDirectory(dir)
+      dir
+    },
     // Drives schemaRegistryCheck (Rework 5 step 3, ADR 0003) - reuses the
     // same AsyncApiChannels registrations above. Env-var override (not a
     // hardcoded default) because local dev and CI point at two different,
@@ -108,9 +121,6 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
       // skunk: non-blocking, pure-FP Postgres access — this service's persistence layer.
       "org.tpolecat" %% "skunk-core" % skunkVersion,
-      // skunk-circe: Codec[Json] for the outbox_events.payload jsonb column (ADR 0008) —
-      // no other jsonb column exists yet in this service, so this is a new dependency.
-      "org.tpolecat" %% "skunk-circe" % skunkVersion,
       // fs2-kafka: pure-FP, FS2-native Kafka producer (publish-only; this
       // service has no consumer).
       "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,

@@ -27,18 +27,6 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   (`UpdateInventoryRequest` takes both `quantityAvailable` and
   `quantityReserved`), same as `quantityAvailable`. Worth hardening later
   (same class of gap as order-service's `status`-as-String flag).
-- Beyond the generated CRUD (create/get/update/delete via `/inventorys`),
-  this service now also implements the dedicated "reserve stock" operation
-  US-4.1 calls for: `POST /inventorys/reservations` (`sku`, `quantity`,
-  `orderItemId` — opaque string, order-service's own `order_items.id`,
-  echoed verbatim on the resulting Kafka event so the consumer can
-  correlate without guessing sku-only matches across concurrent orders) —
-  an atomic conditional `UPDATE` (decrement `quantityAvailable`, increment
-  `quantityReserved`, guarded by `quantity_available >= quantity`) that
-  fails with `409` (`InsufficientStock`) or `404` (unknown sku) rather than
-  overselling. Required a hand-written `UNIQUE (sku)` constraint (Flyway
-  `V2`), since the field-spec didn't make sku unique and reserving by sku
-  needs exactly one row per sku.
 - Bulk order reservations (TD-7.1/7.2, ADR 0018, 2026-10-27):
   `POST /inventorys/order-reservations` reserves every line of an order
   all-or-nothing in one transaction (skus locked in sorted order, per-sku
@@ -46,12 +34,15 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   `orderId`; each line recorded in the `order_reservations` ledger (V4).
   `POST /inventorys/order-reservations/{orderId}/release` returns an
   order's active lines to stock, always `204`. Neither publishes events.
-  The per-item endpoint and its stock events remain until order-service
-  switches (TD-7.3), then go in a cleanup track.
+  This is the only reservation surface — the earlier per-item
+  `POST /inventorys/reservations` and its `StockReserved`/
+  `StockReservationFailed` events were removed in TD-7.5 (2026-10-27).
 
 ## User stories in scope (gluon/docs/user-stories.md)
-- US-4.1 — reserve-stock endpoint (sync, called by order-service)
-- US-5.1 — publish `inventory.stock-reserved` / `inventory.stock-reservation-failed`
+- US-4.1 — reserve-stock endpoint (sync, called by order-service) — the
+  original per-item shape was superseded by TD-7.1/7.2 and removed in TD-7.5
+- US-5.1 — publish stock events — **retired** (TD-7.5); reservation is
+  synchronous and all-or-nothing
 - TD-7.1 / TD-7.2 — bulk reserve + release-by-order (ledger-backed)
 
 ## Sequencing (gluon/PLAN.md)
@@ -62,10 +53,8 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   not that order-service reacts to it
 
 ## Events
-- Publishes: `inventory-events` (eventType `StockReserved` /
-  `StockReservationFailed`, wrapped in the shared envelope — one topic per
-  domain, ADR 0009, migrated 2026-10-11, `kafka-envelope_20261011`;
-  previously two per-event-type topics)
+- Publishes: none — the two stock events were retired in TD-7.5
+  (2026-10-27); `AsyncApiChannels` stays wired with an empty list
 - Consumes: none
 
 ## Out of scope for this service
