@@ -10,7 +10,7 @@
 - [x] Task: `reserveOrder` / `releaseOrder` in-memory interpreter `8633689`
   - [ ] Tests: all-or-nothing, every failing line reported, same-sku aggregation, idempotent repeat, release restores once, release no-op
   - [ ] Implement via single `Ref.modify`
-- [ ] Task: `reserveOrder` / `releaseOrder` postgres interpreter
+- [x] Task: `reserveOrder` / `releaseOrder` postgres interpreter `491116a`
   - [ ] Testcontainers tests mirroring in-memory + concurrency (no oversell) + duplicate concurrent same-orderId
   - [ ] Implement: advisory xact lock, `FOR UPDATE ORDER BY sku`, aggregate check, updates + ledger inserts; release in one tx
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Ledger + store' (Protocol in workflow.md)
