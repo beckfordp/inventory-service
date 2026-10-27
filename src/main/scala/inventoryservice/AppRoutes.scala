@@ -41,7 +41,9 @@ object AppRoutes {
         InventoryRoutes
           .reserveInventoryServerEndpoint[F](store, telemetry.logger),
         InventoryRoutes
-          .listInventoryServerEndpoint[F](store, telemetry.logger),
+          .listInventoryServerEndpoint[F](store, telemetry.logger)
+      ) ++ OrderReservationRoutes
+        .serverEndpoints[F](store, telemetry.logger) ++ List(
         HealthRoutes.healthServerEndpoint[F],
         HealthRoutes.readyServerEndpoint[F](store)
       )

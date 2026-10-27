@@ -369,6 +369,6 @@ object InventoryRoutes {
         deleteInventoryServerEndpoint(store, logger),
         reserveInventoryServerEndpoint(store, logger),
         listInventoryServerEndpoint(store, logger)
-      )
+      ) ++ OrderReservationRoutes.serverEndpoints(store, logger)
     )
 }

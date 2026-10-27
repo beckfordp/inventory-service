@@ -32,4 +32,21 @@ class InventoryDocsSuite extends CatsEffectSuite {
       assert(clue(docsBody).contains("/inventorys"))
     }
   }
+
+  test("the order-reservation endpoints are documented") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = Docs.routes[IO](
+        "Inventory Service",
+        "1.0",
+        OrderReservationRoutes.serverEndpoints[IO](store, NoOpLogger[IO])
+      )
+      docsBody <- routes.orNotFound
+        .run(Request[IO](Method.GET, uri"/docs/docs.yaml"))
+        .flatMap(_.bodyText.compile.string)
+    } yield {
+      assert(clue(docsBody).contains("/inventorys/order-reservations:"))
+      assert(clue(docsBody).contains("'409':"))
+    }
+  }
 }
