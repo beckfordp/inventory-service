@@ -39,10 +39,20 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
   overselling. Required a hand-written `UNIQUE (sku)` constraint (Flyway
   `V2`), since the field-spec didn't make sku unique and reserving by sku
   needs exactly one row per sku.
+- Bulk order reservations (TD-7.1/7.2, ADR 0018, 2026-10-27):
+  `POST /inventorys/order-reservations` reserves every line of an order
+  all-or-nothing in one transaction (skus locked in sorted order, per-sku
+  demand summed), `409` listing every failed line, idempotent per
+  `orderId`; each line recorded in the `order_reservations` ledger (V4).
+  `POST /inventorys/order-reservations/{orderId}/release` returns an
+  order's active lines to stock, always `204`. Neither publishes events.
+  The per-item endpoint and its stock events remain until order-service
+  switches (TD-7.3), then go in a cleanup track.
 
 ## User stories in scope (gluon/docs/user-stories.md)
 - US-4.1 — reserve-stock endpoint (sync, called by order-service)
 - US-5.1 — publish `inventory.stock-reserved` / `inventory.stock-reservation-failed`
+- TD-7.1 / TD-7.2 — bulk reserve + release-by-order (ledger-backed)
 
 ## Sequencing (gluon/PLAN.md)
 - **Phase 1** (parallel with order-service, no dependency between them) —
