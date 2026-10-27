@@ -1,0 +1,1 @@
+Task: POST /inventorys/order-reservations (TD-7.1). Files: OrderReservationRoutes.scala (DTOs, oneOfVariant 400/409 errorOut, 409 decode via DecodeResult), InventoryRoutes.routes + AppRoutes docs wiring, OrderReservationRoutesSuite (201, 409 every line, idempotent 201, five 400 cases), InventoryDocsSuite (docs path + 409).
