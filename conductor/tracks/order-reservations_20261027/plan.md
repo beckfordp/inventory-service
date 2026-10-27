@@ -22,5 +22,5 @@
 - [x] Task: `POST /inventorys/order-reservations/{orderId}/release` `a2083f4`
   - [ ] Route tests: 204 for active, released, unknown, non-UUID
   - [ ] Endpoint + wiring
-- [ ] Task: `scripts/verify-order-reservations.sh` (real service + Postgres via docker compose)
+- [x] Task: `scripts/verify-order-reservations.sh` (real service + Postgres via docker compose) `a8ee168`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: REST endpoints' (Protocol in workflow.md)
