@@ -1,0 +1,1 @@
+Task: V4 migration order_reservations ledger (TD-7.1). Files: V4__create_order_reservations.sql, MigrationsSuite.scala. PK (order_id, order_item_id) also serves order_id lookups, so no separate index. Status/quantity check constraints.
