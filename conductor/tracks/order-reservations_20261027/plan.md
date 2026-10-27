@@ -19,7 +19,7 @@
 - [x] Task: `POST /inventorys/order-reservations` `4269bd1`
   - [ ] Route tests: 201 body, 409 failures list, 400 cases, idempotent 201
   - [ ] tapir endpoint + oneOf errorOut, wire into `routes` + `AppRoutes` docs
-- [ ] Task: `POST /inventorys/order-reservations/{orderId}/release`
+- [x] Task: `POST /inventorys/order-reservations/{orderId}/release` `a2083f4`
   - [ ] Route tests: 204 for active, released, unknown, non-UUID
   - [ ] Endpoint + wiring
 - [ ] Task: `scripts/verify-order-reservations.sh` (real service + Postgres via docker compose)
