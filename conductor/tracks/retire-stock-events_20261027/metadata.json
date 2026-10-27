@@ -1,0 +1,8 @@
+{
+  "track_id": "retire-stock-events_20261027",
+  "type": "chore",
+  "status": "new",
+  "created_at": "2026-10-27T20:25:57Z",
+  "updated_at": "2026-10-27T20:25:57Z",
+  "description": "TD-7.5 — retire the per-item reservation endpoint and stock events: remove POST /inventorys/reservations, StockReserved/StockReservationFailed, their outbox writes and registry artifacts"
+}
