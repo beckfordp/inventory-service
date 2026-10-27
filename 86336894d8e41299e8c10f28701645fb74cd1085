@@ -1,0 +1,1 @@
+Task: reserveOrder/releaseOrder in-memory interpreter (TD-7.1/7.2). Files: InventoryStore.scala (trait methods, InMemoryState over stock+ledger via one Ref, Ref.lens keeps CRUD unchanged; postgres stubs pending next task), OrderReservationStoreContract.scala (shared behaviour), OrderReservationStoreSuite.scala, HealthRoutesSuite/InventoryRoutesSuite stubs.
