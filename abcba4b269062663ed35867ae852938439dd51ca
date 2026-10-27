@@ -1,0 +1,1 @@
+Phase 1 verification (prompt-off): sbt scalafmtCheck Test/scalafmtCheck test — 119 passed; coverage 87.37% stmt / 94.12% branch; new files 97-100%. Store-only phase; end-to-end verify script lands in Phase 2.
