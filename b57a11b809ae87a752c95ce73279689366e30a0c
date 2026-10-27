@@ -1,0 +1,1 @@
+Review fixes: Medium — reserve replay after release now returns 409 'Order reservation already released' (new ReservationReleased ADT case; store returns OrderReservationError; ledger replay reads status). Low — tests for 409 client decode. verify script +4 checks (29/29); 135 tests pass. Not fixed (Low, pre-existing): tapir text 400 on malformed JSON; in-memory sku uniqueness.
