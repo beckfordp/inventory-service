@@ -16,7 +16,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Ledger + store' (Protocol in workflow.md) — prompt-off: 119 tests pass, coverage 87.37% stmt / 94.12% branch
 
 ## Phase 2: REST endpoints
-- [~] Task: `POST /inventorys/order-reservations`
+- [x] Task: `POST /inventorys/order-reservations` `4269bd1`
   - [ ] Route tests: 201 body, 409 failures list, 400 cases, idempotent 201
   - [ ] tapir endpoint + oneOf errorOut, wire into `routes` + `AppRoutes` docs
 - [ ] Task: `POST /inventorys/order-reservations/{orderId}/release`
