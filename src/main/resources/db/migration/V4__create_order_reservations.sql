@@ -4,6 +4,8 @@
 CREATE TABLE "order_reservations" (
     order_id UUID NOT NULL,
     order_item_id UUID NOT NULL,
+    -- request position, so an idempotent replay returns lines in order
+    line_no INT NOT NULL,
     sku TEXT NOT NULL,
     quantity INT NOT NULL CHECK (quantity > 0),
     status TEXT NOT NULL CHECK (status IN ('active', 'released')),

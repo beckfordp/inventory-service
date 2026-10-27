@@ -347,6 +347,57 @@ object InventoryStore {
       WHERE sku = $text
     """.query(uuid)
 
+  /** Serialises concurrent bulk reserves/releases for one `orderId`, so a
+    * duplicate request waits and then sees the first one's ledger lines.
+    * Released automatically at commit/rollback.
+    */
+  private val lockOrder: skunk.Query[String, Int] =
+    sql"""
+      SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended($text, 0))) AS l
+    """.query(int4)
+
+  private val selectLedger: skunk.Query[UUID, (UUID, String, Int)] =
+    sql"""
+      SELECT order_item_id, sku, quantity
+      FROM "order_reservations"
+      WHERE order_id = $uuid
+      ORDER BY line_no
+    """.query(uuid *: text *: int4)
+
+  /** Callers lock skus in sorted order, so two bulk reserves over the same skus
+    * can't deadlock.
+    */
+  private val selectAvailableForUpdate: skunk.Query[String, Int] =
+    sql"""
+      SELECT quantity_available FROM "inventory" WHERE sku = $text FOR UPDATE
+    """.query(int4)
+
+  /** Moves `$qty` from available to reserved (negative for a release); bound
+    * twice, so the caller passes it twice.
+    */
+  private val shiftStockCommand: skunk.Command[(Int, Int, String)] =
+    sql"""
+      UPDATE "inventory"
+      SET quantity_available = quantity_available - $int4,
+          quantity_reserved = quantity_reserved + $int4,
+          updated_at = now()
+      WHERE sku = $text
+    """.command
+
+  private val insertLedgerLine: skunk.Command[(UUID, UUID, Int, String, Int)] =
+    sql"""
+      INSERT INTO "order_reservations" (order_id, order_item_id, line_no, sku, quantity, status)
+      VALUES ($uuid, $uuid, $int4, $text, $int4, 'active')
+    """.command
+
+  private val releaseLedger: skunk.Query[UUID, (String, Int)] =
+    sql"""
+      UPDATE "order_reservations"
+      SET status = 'released', released_at = now()
+      WHERE order_id = $uuid AND status = 'active'
+      RETURNING sku, quantity
+    """.query(text *: int4)
+
   private val pingQuery: skunk.Query[skunk.Void, Int] = sql"SELECT 1".query(
     int4
   )
@@ -664,17 +715,124 @@ object InventoryStore {
                     )
                 })
 
+              /** Applies per-sku stock shifts in sku order (deadlock avoidance,
+                * see `selectAvailableForUpdate`).
+                */
+              def shiftAll(
+                  session: Session[F],
+                  bySku: Map[String, Int],
+                  sign: Int
+              ): F[Unit] =
+                session.prepare(shiftStockCommand).flatMap { cmd =>
+                  bySku.toList.sortBy(_._1).traverse_ { case (sku, qty) =>
+                    cmd.execute((sign * qty, sign * qty, sku))
+                  }
+                }
+
               def reserveOrder(
                   command: ReserveOrder
+              ): F[Either[ReservationRejected, OrderReservation]] = {
+                val lines = command.items.toList
+                timed("reserve_order") {
+                  pool.use { session =>
+                    session.transaction.use { _ =>
+                      for {
+                        _ <- session
+                          .prepare(lockOrder)
+                          .flatMap(_.unique(command.orderId.toString))
+                        existing <- session
+                          .prepare(selectLedger)
+                          .flatMap(_.stream(command.orderId, 64).compile.toList)
+                        result <- NonEmptyList.fromList(existing) match {
+                          case Some(rows) =>
+                            (Right(
+                              OrderReservation(
+                                command.orderId,
+                                rows.toList.map { case (itemId, sku, qty) =>
+                                  ReservationLine(itemId, sku, qty)
+                                }
+                              )
+                            ): Either[ReservationRejected, OrderReservation])
+                              .pure[F]
+                          case None => reserveNew(session, command, lines)
+                        }
+                      } yield result
+                    }
+                  }
+                }
+              }
+
+              def reserveNew(
+                  session: Session[F],
+                  command: ReserveOrder,
+                  lines: List[ReservationLine]
               ): F[Either[ReservationRejected, OrderReservation]] =
-                Async[F].raiseError(
-                  new UnsupportedOperationException("reserveOrder: not yet")
-                )
+                for {
+                  select <- session.prepare(selectAvailableForUpdate)
+                  available <- lines
+                    .map(_.sku)
+                    .distinct
+                    .sorted
+                    .traverse(sku => select.option(sku).map(sku -> _))
+                    .map(_.collect { case (sku, Some(qty)) =>
+                      sku -> qty
+                    }.toMap)
+                  result <- NonEmptyList.fromList(
+                    ReserveOrder.failures(lines, available)
+                  ) match {
+                    case Some(failures) =>
+                      (Left(ReservationRejected(failures)): Either[
+                        ReservationRejected,
+                        OrderReservation
+                      ]).pure[F]
+                    case None =>
+                      for {
+                        _ <- shiftAll(
+                          session,
+                          lines.groupMapReduce(_.sku)(_.quantity)(_ + _),
+                          1
+                        )
+                        insert <- session.prepare(insertLedgerLine)
+                        _ <- lines.zipWithIndex.traverse_ { case (line, n) =>
+                          insert.execute(
+                            (
+                              command.orderId,
+                              line.orderItemId,
+                              n,
+                              line.sku,
+                              line.quantity
+                            )
+                          )
+                        }
+                      } yield (Right(
+                        OrderReservation(command.orderId, lines)
+                      ): Either[
+                        ReservationRejected,
+                        OrderReservation
+                      ])
+                  }
+                } yield result
 
               def releaseOrder(orderId: UUID): F[Unit] =
-                Async[F].raiseError(
-                  new UnsupportedOperationException("releaseOrder: not yet")
-                )
+                timed("release_order") {
+                  pool.use { session =>
+                    session.transaction.use { _ =>
+                      for {
+                        _ <- session
+                          .prepare(lockOrder)
+                          .flatMap(_.unique(orderId.toString))
+                        released <- session
+                          .prepare(releaseLedger)
+                          .flatMap(_.stream(orderId, 64).compile.toList)
+                        _ <- shiftAll(
+                          session,
+                          released.groupMapReduce(_._1)(_._2)(_ + _),
+                          -1
+                        )
+                      } yield ()
+                    }
+                  }
+                }
 
               def ping: F[Boolean] =
                 timed("ping") {

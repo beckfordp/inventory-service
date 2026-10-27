@@ -148,6 +148,7 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
             List(
               ("order_id", "uuid", "NO"),
               ("order_item_id", "uuid", "NO"),
+              ("line_no", "integer", "NO"),
               ("sku", "text", "NO"),
               ("quantity", "integer", "NO"),
               ("status", "text", "NO"),
@@ -170,7 +171,7 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
             conn
               .createStatement()
               .execute(
-                "insert into order_reservations (order_id, order_item_id, sku, quantity, status) values (gen_random_uuid(), gen_random_uuid(), 'x', 1, 'bogus')"
+                "insert into order_reservations (order_id, order_item_id, line_no, sku, quantity, status) values (gen_random_uuid(), gen_random_uuid(), 0, 'x', 1, 'bogus')"
               )
           )
           assert(badStatus.isFailure, "status check constraint missing")
@@ -178,7 +179,7 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
             conn
               .createStatement()
               .execute(
-                "insert into order_reservations (order_id, order_item_id, sku, quantity, status) values (gen_random_uuid(), gen_random_uuid(), 'x', 0, 'active')"
+                "insert into order_reservations (order_id, order_item_id, line_no, sku, quantity, status) values (gen_random_uuid(), gen_random_uuid(), 0, 'x', 0, 'active')"
               )
           )
           assert(badQuantity.isFailure, "quantity check constraint missing")
