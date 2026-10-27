@@ -4,7 +4,7 @@
 - [x] Task: V4 migration `order_reservations` ledger `0695169`
   - [ ] Write MigrationsSuite test (table, PK, check constraints) — red
   - [ ] Add `V4__create_order_reservations.sql` — green
-- [ ] Task: Domain types + `OrderReservationError` ADT
+- [x] Task: Domain types + `OrderReservationError` ADT `01195c3`
   - [ ] Tests: request validation (empty items, qty ≤ 0, duplicate orderItemId, non-UUID ids)
   - [ ] `OrderReservation.scala`: `ReservationLine`, `ReservationFailure(orderItemId, sku, reason)`, `FailureReason` (InsufficientStock|UnknownSku), errors `InvalidReservation(msg)` | `ReservationRejected(failures)`
 - [ ] Task: `reserveOrder` / `releaseOrder` in-memory interpreter
