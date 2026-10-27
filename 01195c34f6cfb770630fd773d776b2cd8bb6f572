@@ -1,0 +1,1 @@
+Task: Domain types + OrderReservationError ADT (TD-7.1). Files: OrderReservation.scala, OrderReservationSuite.scala. ReserveOrder.validate builds a validated command (UUIDs, NonEmptyList, positive qty, unique orderItemId); ReserveOrder.failures computes every failing line with per-sku aggregated demand, shared by both interpreters.
