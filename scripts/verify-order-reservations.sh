@@ -130,9 +130,13 @@ check "B" "1/0" "$(levels "$B")"
 check "ledger" "released|2" "$(ledger "$ORDER")"
 
 echo
-echo "8. Release again, unknown and non-UUID -> 204, no change..."
+echo "8. Release again, replay after release, unknown and non-UUID..."
 check "repeat" "204" "$(post "/inventorys/order-reservations/$ORDER/release" | tail -1)"
 check "A still" "5/0" "$(levels "$A")"
+replay="$(post /inventorys/order-reservations "$body")"
+check "reserve after release returns 409" "409" "$(echo "$replay" | tail -1)"
+check "released error" "Order reservation already released" "$(echo "$replay" | sed '$d' | json "d['error']")"
+check "A still after replay" "5/0" "$(levels "$A")"
 check "unknown" "204" "$(post "/inventorys/order-reservations/$(uuid)/release" | tail -1)"
 check "non-UUID" "204" "$(post /inventorys/order-reservations/nope/release | tail -1)"
 

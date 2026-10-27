@@ -91,7 +91,7 @@ object OrderReservationRoutes {
   /** Decoding the 409 body is only exercised by tapir clients, never by this
     * server; an unparseable body is a decode failure, not a guessed value.
     */
-  private def fromRejectedResponse(
+  private[inventoryservice] def fromRejectedResponse(
       body: ReservationRejectedResponse
   ): DecodeResult[ReservationRejected] =
     body.failures
@@ -108,12 +108,24 @@ object OrderReservationRoutes {
         DecodeResult.Error(body.error, new IllegalArgumentException(body.error))
       )(failures => DecodeResult.Value(ReservationRejected(failures)))
 
+  private val releasedMessage = "Order reservation already released"
+
   private val reserveOrderErrorOutput: EndpointOutput[OrderReservationError] =
     oneOf[OrderReservationError](
       oneOfVariant[InvalidReservation](
         statusCode(StatusCode.BadRequest)
           .and(jsonBody[ErrorResponse])
           .map(e => InvalidReservation(e.error))(i => ErrorResponse(i.message))
+      ),
+      oneOfVariant[ReservationReleased](
+        statusCode(StatusCode.Conflict)
+          .and(jsonBody[ErrorResponse])
+          .mapDecode(_ =>
+            DecodeResult.Error(
+              releasedMessage,
+              new IllegalArgumentException("orderId is not in the body")
+            ): DecodeResult[ReservationReleased]
+          )(_ => ErrorResponse(releasedMessage))
       ),
       oneOfVariant[ReservationRejected](
         statusCode(StatusCode.Conflict)
@@ -167,12 +179,15 @@ object OrderReservationRoutes {
                 logger
                   .info(context)("Request completed")
                   .as(Right(OrderReservationResponse(reservation)))
-              case Left(rejected) =>
+              case Left(error) =>
+                val detail = error match {
+                  case ReservationRejected(failures) =>
+                    "failed_lines" -> failures.size.toString
+                  case other => "error" -> other.toString
+                }
                 logger
-                  .warn(
-                    context + ("failed_lines" -> rejected.failures.size.toString)
-                  )("Reservation rejected")
-                  .as(Left(rejected: OrderReservationError))
+                  .warn(context + detail)("Reservation rejected")
+                  .as(Left(error))
             }
         }
       } yield result

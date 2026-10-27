@@ -50,12 +50,13 @@ trait InventoryStore[F[_]] {
   def list(sku: Option[String]): F[List[Inventory]]
 
   /** All-or-nothing bulk reserve (TD-7.1, ADR 0018), idempotent per `orderId`:
-    * if the order already has ledger lines they're returned unchanged and
-    * nothing more is reserved.
+    * if the order still holds active ledger lines they're returned unchanged
+    * and nothing more is reserved; if they were released, `ReservationReleased`
+    * (a late retry must not be told stock is held).
     */
   def reserveOrder(
       command: ReserveOrder
-  ): F[Either[ReservationRejected, OrderReservation]]
+  ): F[Either[OrderReservationError, OrderReservation]]
 
   /** Returns every active ledger line's quantity to `quantityAvailable` and
     * marks it released (TD-7.2). Unknown or already-released `orderId` is a
@@ -192,11 +193,13 @@ object InventoryStore {
 
         def reserveOrder(
             command: ReserveOrder
-        ): F[Either[ReservationRejected, OrderReservation]] =
+        ): F[Either[OrderReservationError, OrderReservation]] =
           Sync[F].realTimeInstant.flatMap { now =>
             state.modify { current =>
               val lines = command.items.toList
               current.ledger.get(command.orderId) match {
+                case Some(existing) if !existing.exists(_.active) =>
+                  (current, Left(ReservationReleased(command.orderId)))
                 case Some(existing) =>
                   (
                     current,
@@ -356,13 +359,13 @@ object InventoryStore {
       SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended($text, 0))) AS l
     """.query(int4)
 
-  private val selectLedger: skunk.Query[UUID, (UUID, String, Int)] =
+  private val selectLedger: skunk.Query[UUID, (UUID, String, Int, Boolean)] =
     sql"""
-      SELECT order_item_id, sku, quantity
+      SELECT order_item_id, sku, quantity, status = 'active'
       FROM "order_reservations"
       WHERE order_id = $uuid
       ORDER BY line_no
-    """.query(uuid *: text *: int4)
+    """.query(uuid *: text *: int4 *: bool)
 
   /** Callers lock skus in sorted order, so two bulk reserves over the same skus
     * can't deadlock.
@@ -731,7 +734,7 @@ object InventoryStore {
 
               def reserveOrder(
                   command: ReserveOrder
-              ): F[Either[ReservationRejected, OrderReservation]] = {
+              ): F[Either[OrderReservationError, OrderReservation]] = {
                 val lines = command.items.toList
                 timed("reserve_order") {
                   pool.use { session =>
@@ -744,15 +747,20 @@ object InventoryStore {
                           .prepare(selectLedger)
                           .flatMap(_.stream(command.orderId, 64).compile.toList)
                         result <- NonEmptyList.fromList(existing) match {
+                          case Some(rows) if !rows.exists(_._4) =>
+                            (Left(ReservationReleased(command.orderId)): Either[
+                              OrderReservationError,
+                              OrderReservation
+                            ]).pure[F]
                           case Some(rows) =>
                             (Right(
                               OrderReservation(
                                 command.orderId,
-                                rows.toList.map { case (itemId, sku, qty) =>
+                                rows.toList.map { case (itemId, sku, qty, _) =>
                                   ReservationLine(itemId, sku, qty)
                                 }
                               )
-                            ): Either[ReservationRejected, OrderReservation])
+                            ): Either[OrderReservationError, OrderReservation])
                               .pure[F]
                           case None => reserveNew(session, command, lines)
                         }
@@ -766,7 +774,7 @@ object InventoryStore {
                   session: Session[F],
                   command: ReserveOrder,
                   lines: List[ReservationLine]
-              ): F[Either[ReservationRejected, OrderReservation]] =
+              ): F[Either[OrderReservationError, OrderReservation]] =
                 for {
                   select <- session.prepare(selectAvailableForUpdate)
                   available <- lines
@@ -782,7 +790,7 @@ object InventoryStore {
                   ) match {
                     case Some(failures) =>
                       (Left(ReservationRejected(failures)): Either[
-                        ReservationRejected,
+                        OrderReservationError,
                         OrderReservation
                       ]).pure[F]
                     case None =>
@@ -807,7 +815,7 @@ object InventoryStore {
                       } yield (Right(
                         OrderReservation(command.orderId, lines)
                       ): Either[
-                        ReservationRejected,
+                        OrderReservationError,
                         OrderReservation
                       ])
                   }

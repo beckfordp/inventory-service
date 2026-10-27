@@ -27,7 +27,7 @@ class HealthRoutesSuite extends CatsEffectSuite {
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder
-      ): IO[Either[ReservationRejected, OrderReservation]] =
+      ): IO[Either[OrderReservationError, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())
@@ -54,7 +54,7 @@ class HealthRoutesSuite extends CatsEffectSuite {
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder
-      ): IO[Either[ReservationRejected, OrderReservation]] =
+      ): IO[Either[OrderReservationError, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())

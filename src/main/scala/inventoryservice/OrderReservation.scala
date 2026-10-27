@@ -52,6 +52,12 @@ final case class InvalidReservation(message: String)
 final case class ReservationRejected(failures: NonEmptyList[ReservationFailure])
     extends OrderReservationError
 
+/** The order's reservation was already released: replaying it must not report
+  * stock as held when none is.
+  */
+final case class ReservationReleased(orderId: UUID)
+    extends OrderReservationError
+
 object ReserveOrder {
 
   private def parseUuid(value: String, field: String) =

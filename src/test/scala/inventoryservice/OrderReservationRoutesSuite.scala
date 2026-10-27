@@ -194,4 +194,46 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
       assertEquals(response.status, Status.NoContent)
     }
   }
+
+  test(
+    "POST /inventorys/order-reservations after release returns 409 already released"
+  ) {
+    for {
+      routes <- setup("sku-a" -> 5)
+      _ <- reserve(routes, body(orderId, (itemA, "sku-a", 2)))
+      _ <- release(routes, orderId)
+      response <- reserve(routes, body(orderId, (itemA, "sku-a", 2)))
+      json <- response.as[Json]
+    } yield {
+      assertEquals(response.status, Status.Conflict)
+      assertEquals(
+        json,
+        Json.obj("error" -> "Order reservation already released".asJson)
+      )
+    }
+  }
+
+  test("the 409 body decodes back to ReservationRejected for tapir clients") {
+    val id = UUID.randomUUID()
+    assertEquals(
+      OrderReservationRoutes.fromRejectedResponse(
+        ReservationRejectedResponse(
+          "Insufficient stock",
+          List(ReservationFailureResponse(id.toString, "sku-a", "unknown_sku"))
+        )
+      ),
+      sttp.tapir.DecodeResult.Value(
+        ReservationRejected(
+          cats.data.NonEmptyList.of(
+            ReservationFailure(id, "sku-a", FailureReason.UnknownSku)
+          )
+        )
+      )
+    )
+    assert(
+      OrderReservationRoutes
+        .fromRejectedResponse(ReservationRejectedResponse("x", Nil))
+        .isInstanceOf[sttp.tapir.DecodeResult.Error]
+    )
+  }
 }

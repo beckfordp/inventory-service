@@ -23,6 +23,14 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
   private def command(first: ReservationLine, rest: ReservationLine*) =
     ReserveOrder(UUID.randomUUID(), NonEmptyList(first, rest.toList))
 
+  private def failuresOf(
+      error: OrderReservationError
+  ): List[ReservationFailure] =
+    error match {
+      case ReservationRejected(failures) => failures.toList
+      case _                             => Nil
+    }
+
   private def levels(store: InventoryStore[IO], sku: String) =
     store
       .list(Some(sku))
@@ -85,7 +93,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
         _ <- store.create(b, 1)
         result <- store.reserveOrder(command(lines(0), lines.drop(1): _*))
       } yield assertEquals(
-        result.left.map(_.failures.toList.map(f => (f.orderItemId, f.reason))),
+        result.left.map(failuresOf(_).map(f => (f.orderItemId, f.reason))),
         Left(
           List(
             (lines(0).orderItemId, FailureReason.InsufficientStock),
@@ -106,7 +114,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
       levelsTight <- levels(store, tight)
       levelsExact <- levels(store, exact)
     } yield {
-      assertEquals(tooMuch.left.map(_.failures.size), Left(2))
+      assertEquals(tooMuch.left.map(failuresOf(_).size), Left(2))
       assert(fits.isRight, s"expected success, got $fits")
       assertEquals(levelsTight, List((3, 0)))
       assertEquals(levelsExact, List((0, 4)))
@@ -145,6 +153,22 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
       assertEquals(afterFirst, List((5, 0)))
       assertEquals(afterSecond, List((5, 0)))
     }
+  }
+
+  withStore("reserveOrder after releaseOrder is rejected as released") {
+    store =>
+      val a = sku()
+      val cmd = command(line(a, 2))
+      for {
+        _ <- store.create(a, 5)
+        _ <- store.reserveOrder(cmd)
+        _ <- store.releaseOrder(cmd.orderId)
+        replay <- store.reserveOrder(cmd)
+        levelsA <- levels(store, a)
+      } yield {
+        assertEquals(replay, Left(ReservationReleased(cmd.orderId)))
+        assertEquals(levelsA, List((5, 0)))
+      }
   }
 
   withStore("releaseOrder only releases its own order") { store =>
