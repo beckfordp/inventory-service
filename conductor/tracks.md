@@ -2,6 +2,9 @@
 
 This file tracks all major tracks for the project.
 
+- [ ] **Track: TD-15.4 — Cross-repo consistency hardening (inventory-service)**
+  *Link: [./tracks/td15-inventory-hardening_20261029/](./tracks/td15-inventory-hardening_20261029/)*
+
 - [x] **Track: Transactional outbox for inventory-service (TD-3.3, ADR 0008)**
   *Link: [./tracks/outbox_20261012/](./tracks/outbox_20261012/)*
 ---
@@ -13,6 +16,5 @@ folder), so `/conductor:implement` cannot pick these up by accident. Reorder fre
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
 
-- TD-15.4 — cross-repo consistency hardening: typed ids in InventoryStore and reservation routes, ScalaCheck, narrower constraints (see `gluon/TECHNICAL_DEBT.md` TD-15)
 
 ---
