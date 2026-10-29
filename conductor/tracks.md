@@ -13,4 +13,6 @@ folder), so `/conductor:implement` cannot pick these up by accident. Reorder fre
 priorities change. When ready to work on one, run `/conductor:newTrack <title>` to go
 through the spec/plan questions and promote it into a real track above.
 
+- TD-15.4 — cross-repo consistency hardening: typed ids in InventoryStore and reservation routes, ScalaCheck, narrower constraints (see `gluon/TECHNICAL_DEBT.md` TD-15)
+
 ---
