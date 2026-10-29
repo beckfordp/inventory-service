@@ -33,7 +33,12 @@ object Main extends IOApp.Simple {
       )("inventory-service starting")
     )
     store <- InventoryStore.postgres[IO](config.postgres, telemetry.meter)
-    routes = AppRoutes.all[IO](store, telemetry, AsyncApiChannels.channels)
+    routes = AppRoutes.all[IO](
+      store,
+      telemetry,
+      AsyncApiChannels.channels,
+      config.asyncApiHtmlDir
+    )
     _ <- EmberServerBuilder
       .default[IO]
       .withHost(host"0.0.0.0")

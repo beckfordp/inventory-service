@@ -1,6 +1,7 @@
 package inventoryservice
 
 import cats.data.NonEmptyList
+import cats.Monad
 import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
@@ -159,7 +160,7 @@ object OrderReservationRoutes {
       .out(jsonBody[OrderReservationResponse])
       .errorOut(reserveOrderErrorOutput)
 
-  def reserveOrderServerEndpoint[F[_]: Async](
+  def reserveOrderServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -213,7 +214,7 @@ object OrderReservationRoutes {
     * nothing, so there is nothing to release — compensation stays safe to
     * retry.
     */
-  def releaseOrderServerEndpoint[F[_]: Async](
+  def releaseOrderServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -234,7 +235,7 @@ object OrderReservationRoutes {
       } yield ()
     }
 
-  def serverEndpoints[F[_]: Async](
+  def serverEndpoints[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): List[ServerEndpoint[Any, F]] =

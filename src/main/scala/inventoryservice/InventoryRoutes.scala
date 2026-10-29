@@ -1,5 +1,6 @@
 package inventoryservice
 
+import cats.{Monad, MonadThrow}
 import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
@@ -132,7 +133,7 @@ object InventoryRoutes {
       .in(query[Option[String]]("sku"))
       .out(jsonBody[List[InventoryResponse]])
 
-  def serverEndpoint[F[_]: Async](
+  def serverEndpoint[F[_]: MonadThrow](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -154,7 +155,7 @@ object InventoryRoutes {
       } yield InventoryResponse(entity)
     }
 
-  def getInventoryServerEndpoint[F[_]: Async](
+  def getInventoryServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -185,7 +186,7 @@ object InventoryRoutes {
     * both call `InventoryStore.update` with the same required update body; only
     * the logged HTTP method differs.
     */
-  private def updateLogic[F[_]: Async](
+  private def updateLogic[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F],
       httpMethod: String
@@ -217,7 +218,7 @@ object InventoryRoutes {
     } yield result
   }
 
-  def updateInventoryServerEndpoint[F[_]: Async](
+  def updateInventoryServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -225,7 +226,7 @@ object InventoryRoutes {
       updateLogic(store, logger, "PATCH")(id, req)
     }
 
-  def replaceInventoryServerEndpoint[F[_]: Async](
+  def replaceInventoryServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -233,7 +234,7 @@ object InventoryRoutes {
       updateLogic(store, logger, "PUT")(id, req)
     }
 
-  def deleteInventoryServerEndpoint[F[_]: Async](
+  def deleteInventoryServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
@@ -260,7 +261,7 @@ object InventoryRoutes {
       } yield result
     }
 
-  def listInventoryServerEndpoint[F[_]: Async](
+  def listInventoryServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =

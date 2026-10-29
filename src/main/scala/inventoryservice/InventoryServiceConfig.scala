@@ -19,6 +19,7 @@ final case class InventoryServiceConfig(
     port: Int,
     metricsPort: Int,
     serviceName: String,
+    asyncApiHtmlDir: String,
     postgres: PostgresConfig,
     kafka: KafkaConfig
 ) derives ConfigReader
