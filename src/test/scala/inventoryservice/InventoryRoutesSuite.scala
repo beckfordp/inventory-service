@@ -2,6 +2,7 @@ package inventoryservice
 
 import cats.effect.IO
 import munit.CatsEffectSuite
+import inventoryservice.domain.InventoryId
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
 import org.http4s.{Method, Request, Status}
@@ -16,18 +17,20 @@ import purerest.tracing.{ServerTracing, Tracing}
 
 class InventoryRoutesSuite extends CatsEffectSuite {
 
+  private val unknownInventoryId = java.util.UUID.randomUUID().toString
+
   private def failingStore(error: Throwable): InventoryStore[IO] =
     new InventoryStore[IO] {
       def create(sku: String, quantityAvailable: Int): IO[Inventory] =
         IO.raiseError(error)
-      def get(id: String): IO[Option[Inventory]] = IO.pure(None)
+      def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
-          id: String,
+          id: InventoryId,
           quantityAvailable: Int,
           quantityReserved: Int
       ): IO[Option[Inventory]] =
         IO.raiseError(error)
-      def delete(id: String): IO[Boolean] = IO.raiseError(error)
+      def delete(id: InventoryId): IO[Boolean] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def reserveOrder(
           command: ReserveOrder
@@ -79,7 +82,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
-        Request[IO](Method.GET, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.GET, uri"/inventorys" / unknownInventoryId)
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -143,6 +146,16 @@ class InventoryRoutesSuite extends CatsEffectSuite {
     }
   }
 
+  test("GET /inventorys/{id} returns 400 for a malformed (non-UUID) id") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      response <- routes.orNotFound.run(
+        Request[IO](Method.GET, uri"/inventorys" / "not-a-uuid")
+      )
+    } yield assertEquals(response.status, Status.BadRequest)
+  }
+
   test(
     "GET /inventorys/{id} logs a received-request line and a completed line for a found entity"
   ) {
@@ -190,7 +203,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = InventoryRoutes.routes[IO](store, testLogger)
       response <- routes.orNotFound.run(
-        Request[IO](Method.GET, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.GET, uri"/inventorys" / unknownInventoryId)
       )
       logged <- testLogger.logged
     } yield {
@@ -199,7 +212,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("inventory_id").contains("unknown-id")
+            m.ctx.get("inventory_id").contains(unknownInventoryId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -234,7 +247,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
-        Request[IO](Method.PATCH, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.PATCH, uri"/inventorys" / unknownInventoryId)
           .withEntity(UpdateInventoryRequest(100, 0))
       )
       body <- response.as[io.circe.Json]
@@ -293,7 +306,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = InventoryRoutes.routes[IO](store, testLogger)
       response <- routes.orNotFound.run(
-        Request[IO](Method.PATCH, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.PATCH, uri"/inventorys" / unknownInventoryId)
           .withEntity(UpdateInventoryRequest(100, 0))
       )
       logged <- testLogger.logged
@@ -303,7 +316,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("inventory_id").contains("unknown-id")
+            m.ctx.get("inventory_id").contains(unknownInventoryId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -341,7 +354,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
-        Request[IO](Method.DELETE, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.DELETE, uri"/inventorys" / unknownInventoryId)
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -398,7 +411,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       testLogger = StructuredTestingLogger.impl[IO]()
       routes = InventoryRoutes.routes[IO](store, testLogger)
       response <- routes.orNotFound.run(
-        Request[IO](Method.DELETE, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.DELETE, uri"/inventorys" / unknownInventoryId)
       )
       logged <- testLogger.logged
     } yield {
@@ -407,7 +420,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       assert(
         warns.exists(m =>
           m.message.toLowerCase.contains("not found") &&
-            m.ctx.get("inventory_id").contains("unknown-id")
+            m.ctx.get("inventory_id").contains(unknownInventoryId)
         ),
         s"expected a 'not found' WARN line with id context, got: $warns"
       )
@@ -442,7 +455,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       store <- InventoryStore.inMemory[IO]
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
-        Request[IO](Method.PUT, uri"/inventorys" / "unknown-id")
+        Request[IO](Method.PUT, uri"/inventorys" / unknownInventoryId)
           .withEntity(UpdateInventoryRequest(100, 0))
       )
       body <- response.as[io.circe.Json]

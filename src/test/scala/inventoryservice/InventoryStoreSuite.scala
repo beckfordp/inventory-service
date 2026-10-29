@@ -2,14 +2,20 @@ package inventoryservice
 
 import cats.effect.IO
 import munit.CatsEffectSuite
+import inventoryservice.domain.InventoryId
+
+import java.util.UUID
 
 class InventoryStoreSuite extends CatsEffectSuite {
+
+  private def unknownInventoryId: InventoryId =
+    InventoryId.fromUuid(UUID.randomUUID())
 
   test("create returns a persisted entity with a generated id") {
     for {
       store <- InventoryStore.inMemory[IO]
       entity <- store.create("sku-widget-1", 100)
-    } yield assert(entity.id.nonEmpty)
+    } yield assert(InventoryId.render(entity.id).nonEmpty)
   }
 
   test("get returns the persisted entity") {
@@ -23,7 +29,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
   test("get returns None for an unknown id") {
     for {
       store <- InventoryStore.inMemory[IO]
-      found <- store.get("unknown-id")
+      found <- store.get(unknownInventoryId)
     } yield assertEquals(found, None)
   }
 
@@ -54,7 +60,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
   test("update returns None for an unknown id") {
     for {
       store <- InventoryStore.inMemory[IO]
-      result <- store.update("unknown-id", 100, 0)
+      result <- store.update(unknownInventoryId, 100, 0)
     } yield assertEquals(result, None)
   }
 
@@ -75,7 +81,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
   test("delete returns false for an unknown id") {
     for {
       store <- InventoryStore.inMemory[IO]
-      deleted <- store.delete("unknown-id")
+      deleted <- store.delete(unknownInventoryId)
     } yield assert(!deleted)
   }
 

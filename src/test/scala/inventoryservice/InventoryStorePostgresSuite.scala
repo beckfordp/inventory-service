@@ -5,6 +5,9 @@ import cats.syntax.all._
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.dimafeng.testcontainers.munit.TestContainerForAll
 import munit.CatsEffectSuite
+import inventoryservice.domain.InventoryId
+
+import java.util.UUID
 import org.testcontainers.utility.DockerImageName
 import org.typelevel.otel4s.metrics.Meter
 import purerest.metrics.Metrics
@@ -43,7 +46,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store.create(uniqueSku(), 100).map { entity =>
-            assert(entity.id.nonEmpty)
+            assert(InventoryId.render(entity.id).nonEmpty)
           }
         }
     }
@@ -102,19 +105,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .get(java.util.UUID.randomUUID().toString)
+            .get(InventoryId.fromUuid(UUID.randomUUID()))
             .map(assertEquals(_, None))
-        }
-    }
-  }
-
-  test("get returns None for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> InventoryStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.get("not-a-uuid").map(assertEquals(_, None))
         }
     }
   }
@@ -146,19 +138,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .update(java.util.UUID.randomUUID().toString, 100, 0)
+            .update(InventoryId.fromUuid(UUID.randomUUID()), 100, 0)
             .map(assertEquals(_, None))
-        }
-    }
-  }
-
-  test("update returns None for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> InventoryStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.update("not-a-uuid", 100, 0).map(assertEquals(_, None))
         }
     }
   }
@@ -190,19 +171,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .delete(java.util.UUID.randomUUID().toString)
+            .delete(InventoryId.fromUuid(UUID.randomUUID()))
             .map(deleted => assert(!deleted))
-        }
-    }
-  }
-
-  test("delete returns false for a malformed (non-UUID) id") {
-    withContainers { postgres =>
-      val config = configFor(postgres)
-      Migrations.run[IO](config) *> InventoryStore
-        .postgres[IO](config, Meter.noop[IO])
-        .use { store =>
-          store.delete("not-a-uuid").map(deleted => assert(!deleted))
         }
     }
   }
@@ -422,7 +392,9 @@ class InventoryStorePostgresSuite
             // 5 concurrent bulk reserves of 30 each = 150 requested against
             // 100 available; at most 3 can succeed (3 * 30 = 90 <= 100, a
             // 4th would push it to 120).
-            results <- List.fill(5)(reserveOrder()).parTraverse(store.reserveOrder)
+            results <- List
+              .fill(5)(reserveOrder())
+              .parTraverse(store.reserveOrder)
             finalState <- store.list(Some(sku))
           } yield {
             val succeeded = results.collect { case Right(reservation) =>

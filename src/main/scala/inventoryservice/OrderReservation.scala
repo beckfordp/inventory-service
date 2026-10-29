@@ -4,7 +4,6 @@ import cats.data.NonEmptyList
 import cats.syntax.all._
 
 import java.util.UUID
-import scala.util.Try
 
 /** Bulk order reservation domain (TD-7.1, ADR 0018) — contract in
   * `gluon/docs/system-design.md`'s `POST /inventorys/order-reservations`.
@@ -61,9 +60,9 @@ final case class ReservationReleased(orderId: UUID)
 object ReserveOrder {
 
   private def parseUuid(value: String, field: String) =
-    Try(UUID.fromString(value)).toEither.leftMap(_ =>
-      InvalidReservation(s"$field must be a UUID")
-    )
+    Either
+      .catchOnly[IllegalArgumentException](UUID.fromString(value))
+      .leftMap(_ => InvalidReservation(s"$field must be a UUID"))
 
   def validate(
       orderId: String,

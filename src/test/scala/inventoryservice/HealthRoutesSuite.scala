@@ -2,6 +2,7 @@ package inventoryservice
 
 import cats.effect.IO
 import munit.CatsEffectSuite
+import inventoryservice.domain.InventoryId
 import org.http4s.implicits._
 import org.http4s.{Method, Request, Status}
 
@@ -11,13 +12,13 @@ class HealthRoutesSuite extends CatsEffectSuite {
     new InventoryStore[IO] {
       def create(sku: String, quantityAvailable: Int): IO[Inventory] =
         IO.raiseError(new NotImplementedError())
-      def get(id: String): IO[Option[Inventory]] = IO.pure(None)
+      def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
-          id: String,
+          id: InventoryId,
           quantityAvailable: Int,
           quantityReserved: Int
       ): IO[Option[Inventory]] = IO.pure(None)
-      def delete(id: String): IO[Boolean] = IO.pure(false)
+      def delete(id: InventoryId): IO[Boolean] = IO.pure(false)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder
@@ -32,13 +33,13 @@ class HealthRoutesSuite extends CatsEffectSuite {
     new InventoryStore[IO] {
       def create(sku: String, quantityAvailable: Int): IO[Inventory] =
         IO.raiseError(new NotImplementedError())
-      def get(id: String): IO[Option[Inventory]] = IO.pure(None)
+      def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
-          id: String,
+          id: InventoryId,
           quantityAvailable: Int,
           quantityReserved: Int
       ): IO[Option[Inventory]] = IO.pure(None)
-      def delete(id: String): IO[Boolean] = IO.pure(false)
+      def delete(id: InventoryId): IO[Boolean] = IO.pure(false)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder

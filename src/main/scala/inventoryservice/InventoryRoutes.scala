@@ -4,6 +4,7 @@ import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import inventoryservice.domain.InventoryId
 import org.http4s.HttpRoutes
 import org.typelevel.log4cats.StructuredLogger
 import sttp.model.StatusCode
@@ -42,7 +43,7 @@ object InventoryResponse {
 
   def apply(entity: Inventory): InventoryResponse =
     InventoryResponse(
-      entity.id,
+      InventoryId.render(entity.id),
       entity.sku,
       entity.quantityAvailable,
       entity.quantityReserved,
@@ -79,44 +80,44 @@ object InventoryRoutes {
       )
 
   private val getInventoryEndpoint: PublicEndpoint[
-    String,
+    InventoryId,
     InventoryError,
     InventoryResponse,
     Any
   ] =
     endpoint.get
-      .in("inventorys" / path[String]("id"))
+      .in("inventorys" / path[InventoryId]("id"))
       .out(jsonBody[InventoryResponse])
       .errorOut(notFoundOutput)
 
   private val updateInventoryEndpoint: PublicEndpoint[
-    (String, UpdateInventoryRequest),
+    (InventoryId, UpdateInventoryRequest),
     InventoryError,
     InventoryResponse,
     Any
   ] =
     endpoint.patch
-      .in("inventorys" / path[String]("id"))
+      .in("inventorys" / path[InventoryId]("id"))
       .in(jsonBody[UpdateInventoryRequest])
       .out(jsonBody[InventoryResponse])
       .errorOut(notFoundOutput)
 
   private val replaceInventoryEndpoint: PublicEndpoint[
-    (String, UpdateInventoryRequest),
+    (InventoryId, UpdateInventoryRequest),
     InventoryError,
     InventoryResponse,
     Any
   ] =
     endpoint.put
-      .in("inventorys" / path[String]("id"))
+      .in("inventorys" / path[InventoryId]("id"))
       .in(jsonBody[UpdateInventoryRequest])
       .out(jsonBody[InventoryResponse])
       .errorOut(notFoundOutput)
 
   private val deleteInventoryEndpoint
-      : PublicEndpoint[String, InventoryError, Unit, Any] =
+      : PublicEndpoint[InventoryId, InventoryError, Unit, Any] =
     endpoint.delete
-      .in("inventorys" / path[String]("id"))
+      .in("inventorys" / path[InventoryId]("id"))
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
 
@@ -148,7 +149,7 @@ object InventoryRoutes {
             logger.error(Map.empty, error)("Persisting the inventory failed")
         }
         _ <- logger.info(
-          Map("inventory_id" -> entity.id)
+          Map("inventory_id" -> InventoryId.render(entity.id))
         )("Request completed")
       } yield InventoryResponse(entity)
     }
@@ -158,24 +159,23 @@ object InventoryRoutes {
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
     getInventoryEndpoint.serverLogic[F] { id =>
+      val renderedId = InventoryId.render(id)
       for {
         _ <- logger.info(
           Map(
             "method" -> "GET",
-            "path" -> s"/inventorys/$id",
-            "inventory_id" -> id
+            "path" -> s"/inventorys/$renderedId",
+            "inventory_id" -> renderedId
           )
-        )(
-          "Received request"
-        )
+        )("Received request")
         result <- store.get(id).flatMap {
           case Some(entity) =>
             logger
-              .info(Map("inventory_id" -> id))("Request completed")
+              .info(Map("inventory_id" -> renderedId))("Request completed")
               .as(Right(InventoryResponse(entity)))
           case None =>
             logger
-              .warn(Map("inventory_id" -> id))("Inventory not found")
+              .warn(Map("inventory_id" -> renderedId))("Inventory not found")
               .as(Left(InventoryNotFound))
         }
       } yield result
@@ -190,15 +190,16 @@ object InventoryRoutes {
       logger: StructuredLogger[F],
       httpMethod: String
   )(
-      id: String,
+      id: InventoryId,
       req: UpdateInventoryRequest
-  ): F[Either[InventoryError, InventoryResponse]] =
+  ): F[Either[InventoryError, InventoryResponse]] = {
+    val renderedId = InventoryId.render(id)
     for {
       _ <- logger.info(
         Map(
           "method" -> httpMethod,
-          "path" -> s"/inventorys/$id",
-          "inventory_id" -> id
+          "path" -> s"/inventorys/$renderedId",
+          "inventory_id" -> renderedId
         )
       )("Received request")
       result <- store
@@ -206,14 +207,15 @@ object InventoryRoutes {
         .flatMap {
           case Some(entity) =>
             logger
-              .info(Map("inventory_id" -> id))("Request completed")
+              .info(Map("inventory_id" -> renderedId))("Request completed")
               .as(Right(InventoryResponse(entity)))
           case None =>
             logger
-              .warn(Map("inventory_id" -> id))("Inventory not found")
+              .warn(Map("inventory_id" -> renderedId))("Inventory not found")
               .as(Left(InventoryNotFound))
         }
     } yield result
+  }
 
   def updateInventoryServerEndpoint[F[_]: Async](
       store: InventoryStore[F],
@@ -236,22 +238,23 @@ object InventoryRoutes {
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
     deleteInventoryEndpoint.serverLogic[F] { id =>
+      val renderedId = InventoryId.render(id)
       for {
         _ <- logger.info(
           Map(
             "method" -> "DELETE",
-            "path" -> s"/inventorys/$id",
-            "inventory_id" -> id
+            "path" -> s"/inventorys/$renderedId",
+            "inventory_id" -> renderedId
           )
         )("Received request")
         result <- store.delete(id).flatMap {
           case true =>
             logger
-              .info(Map("inventory_id" -> id))("Request completed")
+              .info(Map("inventory_id" -> renderedId))("Request completed")
               .as(Right(()))
           case false =>
             logger
-              .warn(Map("inventory_id" -> id))("Inventory not found")
+              .warn(Map("inventory_id" -> renderedId))("Inventory not found")
               .as(Left(InventoryNotFound))
         }
       } yield result

@@ -4,6 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
+import inventoryservice.domain.InventoryId
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
@@ -16,7 +17,7 @@ import java.util.UUID
 import scala.concurrent.duration.SECONDS
 
 final case class Inventory(
-    id: String,
+    id: InventoryId,
     sku: String,
     quantityAvailable: Int,
     quantityReserved: Int,
@@ -26,13 +27,13 @@ final case class Inventory(
 
 trait InventoryStore[F[_]] {
   def create(sku: String, quantityAvailable: Int): F[Inventory]
-  def get(id: String): F[Option[Inventory]]
+  def get(id: InventoryId): F[Option[Inventory]]
   def update(
-      id: String,
+      id: InventoryId,
       quantityAvailable: Int,
       quantityReserved: Int
   ): F[Option[Inventory]]
-  def delete(id: String): F[Boolean]
+  def delete(id: InventoryId): F[Boolean]
   def list(sku: Option[String]): F[List[Inventory]]
 
   /** All-or-nothing bulk reserve (TD-7.1, ADR 0018), idempotent per `orderId`:
@@ -62,7 +63,7 @@ object InventoryStore {
     * updates both atomically, as the Postgres transaction does.
     */
   private final case class InMemoryState(
-      inventory: Map[String, Inventory],
+      inventory: Map[InventoryId, Inventory],
       ledger: Map[UUID, List[LedgerLine]]
   )
 
@@ -70,11 +71,11 @@ object InventoryStore {
     * absent from `entities` are left alone.
     */
   private def shiftStock(
-      entities: Map[String, Inventory],
+      entities: Map[InventoryId, Inventory],
       lines: List[ReservationLine],
       sign: Int,
       now: java.time.Instant
-  ): Map[String, Inventory] = {
+  ): Map[InventoryId, Inventory] = {
     val bySku = lines.groupMapReduce(_.sku)(_.quantity)(_ + _)
     entities.map { case (id, inv) =>
       bySku.get(inv.sku) match {
@@ -92,14 +93,16 @@ object InventoryStore {
   def inMemory[F[_]: Sync]: F[InventoryStore[F]] =
     Ref.of[F, InMemoryState](InMemoryState(Map.empty, Map.empty)).map { state =>
       // Existing CRUD methods keep operating on just the stock map.
-      val ref = Ref.lens[F, InMemoryState, Map[String, Inventory]](state)(
+      val ref = Ref.lens[F, InMemoryState, Map[InventoryId, Inventory]](state)(
         _.inventory,
         s => inventory => s.copy(inventory = inventory)
       )
       new InventoryStore[F] {
         def create(sku: String, quantityAvailable: Int): F[Inventory] =
           for {
-            id <- Sync[F].delay(java.util.UUID.randomUUID().toString)
+            id <- Sync[F].delay(
+              InventoryId.fromUuid(java.util.UUID.randomUUID())
+            )
             now <- Sync[F].realTimeInstant
             entity = Inventory(
               id,
@@ -112,10 +115,10 @@ object InventoryStore {
             _ <- ref.update(_ + (id -> entity))
           } yield entity
 
-        def get(id: String): F[Option[Inventory]] = ref.get.map(_.get(id))
+        def get(id: InventoryId): F[Option[Inventory]] = ref.get.map(_.get(id))
 
         def update(
-            id: String,
+            id: InventoryId,
             quantityAvailable: Int,
             quantityReserved: Int
         ): F[Option[Inventory]] =
@@ -136,7 +139,7 @@ object InventoryStore {
             }
           } yield updated
 
-        def delete(id: String): F[Boolean] =
+        def delete(id: InventoryId): F[Boolean] =
           ref.modify { entities =>
             if (entities.contains(id)) (entities - id, true)
             else (entities, false)
@@ -393,7 +396,7 @@ object InventoryStore {
                 } yield {
                   val (createdAt, updatedAt) = timestamps
                   Inventory(
-                    id.toString,
+                    InventoryId.fromUuid(id),
                     sku,
                     quantityAvailable,
                     defaultQuantityReserved,
@@ -402,88 +405,76 @@ object InventoryStore {
                   )
                 }
 
-              def get(id: String): F[Option[Inventory]] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(None)
-                  case Some(uuid) =>
-                    for {
-                      row <- timed("select") {
-                        pool.use { session =>
-                          session
-                            .prepare(selectInventory)
-                            .flatMap(_.option(uuid))
-                        }
-                      }
-                    } yield row.map {
-                      case (
-                            sku,
-                            quantityAvailable,
-                            quantityReserved,
-                            createdAt,
-                            updatedAt
-                          ) =>
-                        Inventory(
-                          id,
-                          sku,
-                          quantityAvailable,
-                          quantityReserved,
-                          createdAt.toInstant,
-                          updatedAt.toInstant
-                        )
-                    }
-                }
+              def get(id: InventoryId): F[Option[Inventory]] =
+                timed("select") {
+                  pool.use { session =>
+                    session
+                      .prepare(selectInventory)
+                      .flatMap(_.option(InventoryId.uuid(id)))
+                  }
+                }.map(_.map {
+                  case (
+                        sku,
+                        quantityAvailable,
+                        quantityReserved,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Inventory(
+                      id,
+                      sku,
+                      quantityAvailable,
+                      quantityReserved,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                })
 
               def update(
-                  id: String,
+                  id: InventoryId,
                   quantityAvailable: Int,
                   quantityReserved: Int
               ): F[Option[Inventory]] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(None)
-                  case Some(uuid) =>
-                    for {
-                      row <- timed("update") {
-                        pool.use { session =>
-                          session
-                            .prepare(updateInventory)
-                            .flatMap(
-                              _.option(
-                                (quantityAvailable, quantityReserved, uuid)
-                              )
-                            )
-                        }
-                      }
-                    } yield row.map {
-                      case (
-                            sku,
+                timed("update") {
+                  pool.use { session =>
+                    session
+                      .prepare(updateInventory)
+                      .flatMap(
+                        _.option(
+                          (
                             quantityAvailable,
                             quantityReserved,
-                            createdAt,
-                            updatedAt
-                          ) =>
-                        Inventory(
-                          id,
-                          sku,
-                          quantityAvailable,
-                          quantityReserved,
-                          createdAt.toInstant,
-                          updatedAt.toInstant
+                            InventoryId.uuid(id)
+                          )
                         )
-                    }
-                }
+                      )
+                  }
+                }.map(_.map {
+                  case (
+                        sku,
+                        quantityAvailable,
+                        quantityReserved,
+                        createdAt,
+                        updatedAt
+                      ) =>
+                    Inventory(
+                      id,
+                      sku,
+                      quantityAvailable,
+                      quantityReserved,
+                      createdAt.toInstant,
+                      updatedAt.toInstant
+                    )
+                })
 
-              def delete(id: String): F[Boolean] =
-                scala.util.Try(UUID.fromString(id)).toOption match {
-                  case None       => Sync[F].pure(false)
-                  case Some(uuid) =>
-                    timed("delete") {
-                      pool.use { session =>
-                        session
-                          .prepare(deleteInventory)
-                          .flatMap(_.option(uuid))
-                          .map(_.isDefined)
-                      }
-                    }
+              def delete(id: InventoryId): F[Boolean] =
+                timed("delete") {
+                  pool.use { session =>
+                    session
+                      .prepare(deleteInventory)
+                      .flatMap(_.option(InventoryId.uuid(id)))
+                      .map(_.isDefined)
+                  }
                 }
 
               def list(sku: Option[String]): F[List[Inventory]] =
@@ -510,7 +501,7 @@ object InventoryStore {
                         updatedAt
                       ) =>
                     Inventory(
-                      id.toString,
+                      InventoryId.fromUuid(id),
                       sku,
                       quantityAvailable,
                       quantityReserved,

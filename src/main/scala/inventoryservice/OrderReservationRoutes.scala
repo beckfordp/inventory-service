@@ -99,7 +99,14 @@ object OrderReservationRoutes {
         val reason =
           List(FailureReason.InsufficientStock, FailureReason.UnknownSku)
             .find(_.wire == f.reason)
-        (Try(UUID.fromString(f.orderItemId)).toOption, reason).mapN(
+        (
+          Either
+            .catchOnly[IllegalArgumentException](
+              UUID.fromString(f.orderItemId)
+            )
+            .toOption,
+          reason
+        ).mapN(
           ReservationFailure(_, f.sku, _)
         )
       }
@@ -219,7 +226,9 @@ object OrderReservationRoutes {
             "path" -> s"/inventorys/order-reservations/$orderId/release"
           ) ++ context
         )("Received request")
-        _ <- Try(UUID.fromString(orderId)).toOption
+        _ <- Either
+          .catchOnly[IllegalArgumentException](UUID.fromString(orderId))
+          .toOption
           .traverse_(store.releaseOrder)
         _ <- logger.info(context)("Request completed")
       } yield ()
