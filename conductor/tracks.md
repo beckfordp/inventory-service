@@ -2,7 +2,7 @@
 
 This file tracks all major tracks for the project.
 
-- [ ] **Track: TD-15.4 — Cross-repo consistency hardening (inventory-service)**
+- [x] **Track: TD-15.4 — Cross-repo consistency hardening (inventory-service)**
   *Link: [./tracks/td15-inventory-hardening_20261029/](./tracks/td15-inventory-hardening_20261029/)*
 
 - [x] **Track: Transactional outbox for inventory-service (TD-3.3, ADR 0008)**
