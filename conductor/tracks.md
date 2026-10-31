@@ -4,9 +4,6 @@ This file tracks all major tracks for the project.
 
 - [x] **Track: Transactional outbox for inventory-service (TD-3.3, ADR 0008)**
   *Link: [./tracks/outbox_20261012/](./tracks/outbox_20261012/)*
-- [x] **Track: Schema registry baseline from gluon's git store (gluon TD-18.5)**
-  *Link: [./tracks/schema-registry-baseline_20261031/](./tracks/schema-registry-baseline_20261031/)*
-
 ---
 
 ## Backlog
