@@ -5,7 +5,7 @@ import cats.syntax.all._
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.dimafeng.testcontainers.munit.TestContainerForAll
 import munit.CatsEffectSuite
-import inventoryservice.domain.InventoryId
+import inventoryservice.domain._
 
 import java.util.UUID
 import org.testcontainers.utility.DockerImageName

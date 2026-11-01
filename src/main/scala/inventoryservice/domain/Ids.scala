@@ -1,6 +1,5 @@
 package inventoryservice.domain
 
-import cats.syntax.all._
 import sttp.tapir.{Codec, CodecFormat, DecodeResult, Schema}
 
 import java.util.UUID
@@ -13,9 +12,7 @@ opaque type InventoryId = UUID
 object InventoryId {
 
   def parse(raw: String): Either[String, InventoryId] =
-    Either
-      .catchOnly[IllegalArgumentException](UUID.fromString(raw))
-      .leftMap(_ => s"Invalid inventory id: '$raw'")
+    Uuids.parse(raw).toRight(s"Invalid inventory id: '$raw'")
 
   def fromUuid(value: UUID): InventoryId = value
 

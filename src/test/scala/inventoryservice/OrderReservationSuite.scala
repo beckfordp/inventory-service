@@ -1,6 +1,7 @@
 package inventoryservice
 
 import cats.data.NonEmptyList
+import inventoryservice.domain._
 import munit.FunSuite
 
 import java.util.UUID
@@ -94,5 +95,23 @@ class OrderReservationSuite extends FunSuite {
   test("failure reasons render as the contract's snake_case strings") {
     assertEquals(FailureReason.InsufficientStock.wire, "insufficient_stock")
     assertEquals(FailureReason.UnknownSku.wire, "unknown_sku")
+  }
+
+  test("failures rejects summed demand that overflows Int") {
+    val lines = List(
+      ReservationLine(itemA, "big", Int.MaxValue),
+      ReservationLine(itemB, "big", Int.MaxValue)
+    )
+    assertEquals(
+      ReserveOrder.failures(lines, Map("big" -> 10)).map(_.reason),
+      List(FailureReason.InsufficientStock, FailureReason.InsufficientStock)
+    )
+  }
+
+  test("FailureReason.fromWire round-trips every reason") {
+    FailureReason.values.foreach { reason =>
+      assertEquals(FailureReason.fromWire(reason.wire), Some(reason))
+    }
+    assertEquals(FailureReason.fromWire("nope"), None)
   }
 }

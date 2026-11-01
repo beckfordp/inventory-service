@@ -4,7 +4,7 @@ import cats.data.NonEmptyList
 import cats.effect.{Async, Ref, Resource, Sync}
 import cats.effect.std.Console
 import cats.syntax.all._
-import inventoryservice.domain.InventoryId
+import inventoryservice.domain._
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter

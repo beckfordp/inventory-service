@@ -6,15 +6,13 @@ import cats.effect.Async
 import cats.syntax.all._
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import inventoryservice.domain._
 import org.typelevel.log4cats.StructuredLogger
 import sttp.model.StatusCode
 import sttp.tapir._
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.ServerEndpoint
-
-import java.util.UUID
-import scala.util.Try
 
 final case class ReserveOrderItemRequest(
     orderItemId: String,
@@ -97,19 +95,8 @@ object OrderReservationRoutes {
   ): DecodeResult[ReservationRejected] =
     body.failures
       .traverse { f =>
-        val reason =
-          List(FailureReason.InsufficientStock, FailureReason.UnknownSku)
-            .find(_.wire == f.reason)
-        (
-          Either
-            .catchOnly[IllegalArgumentException](
-              UUID.fromString(f.orderItemId)
-            )
-            .toOption,
-          reason
-        ).mapN(
-          ReservationFailure(_, f.sku, _)
-        )
+        (Uuids.parse(f.orderItemId), FailureReason.fromWire(f.reason))
+          .mapN(ReservationFailure(_, f.sku, _))
       }
       .flatMap(NonEmptyList.fromList)
       .fold[DecodeResult[ReservationRejected]](
@@ -227,10 +214,7 @@ object OrderReservationRoutes {
             "path" -> s"/inventorys/order-reservations/$orderId/release"
           ) ++ context
         )("Received request")
-        _ <- Either
-          .catchOnly[IllegalArgumentException](UUID.fromString(orderId))
-          .toOption
-          .traverse_(store.releaseOrder)
+        _ <- Uuids.parse(orderId).traverse_(store.releaseOrder)
         _ <- logger.info(context)("Request completed")
       } yield ()
     }

@@ -1,7 +1,7 @@
 package inventoryservice
 
 import munit.ScalaCheckSuite
-import inventoryservice.domain.InventoryId
+import inventoryservice.domain.{InventoryId, RequestedLine, ReserveOrder}
 import org.scalacheck.Gen
 import org.scalacheck.Prop.forAll
 

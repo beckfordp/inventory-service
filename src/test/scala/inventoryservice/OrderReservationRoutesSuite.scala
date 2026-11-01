@@ -1,5 +1,6 @@
 package inventoryservice
 
+import inventoryservice.domain._
 import cats.effect.IO
 import io.circe.Json
 import cats.syntax.all._

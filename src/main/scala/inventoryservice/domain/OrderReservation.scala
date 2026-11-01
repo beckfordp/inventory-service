@@ -1,4 +1,4 @@
-package inventoryservice
+package inventoryservice.domain
 
 import cats.data.NonEmptyList
 import cats.syntax.all._
@@ -24,17 +24,16 @@ final case class ReserveOrder(
 
 final case class OrderReservation(orderId: UUID, items: List[ReservationLine])
 
-sealed trait FailureReason {
-  def wire: String
+/** Why a line couldn't be reserved; `wire` is the contract's snake_case value.
+  */
+enum FailureReason(val wire: String) {
+  case InsufficientStock extends FailureReason("insufficient_stock")
+  case UnknownSku extends FailureReason("unknown_sku")
 }
 
 object FailureReason {
-  case object InsufficientStock extends FailureReason {
-    val wire = "insufficient_stock"
-  }
-  case object UnknownSku extends FailureReason {
-    val wire = "unknown_sku"
-  }
+  def fromWire(raw: String): Option[FailureReason] =
+    values.find(_.wire == raw)
 }
 
 final case class ReservationFailure(
@@ -60,9 +59,7 @@ final case class ReservationReleased(orderId: UUID)
 object ReserveOrder {
 
   private def parseUuid(value: String, field: String) =
-    Either
-      .catchOnly[IllegalArgumentException](UUID.fromString(value))
-      .leftMap(_ => InvalidReservation(s"$field must be a UUID"))
+    Uuids.parse(value).toRight(InvalidReservation(s"$field must be a UUID"))
 
   def validate(
       orderId: String,
@@ -89,13 +86,14 @@ object ReserveOrder {
 
   /** Every failing line, in request order: a sku missing from `available` is
     * `UnknownSku`; a sku whose summed demand across lines exceeds its available
-    * quantity fails on every one of its lines.
+    * quantity fails on every one of its lines. Demand is summed in `Long`, so
+    * lines that together exceed `Int.MaxValue` can't wrap round and pass.
     */
   def failures(
       lines: List[ReservationLine],
       available: Map[String, Int]
   ): List[ReservationFailure] = {
-    val demand = lines.groupMapReduce(_.sku)(_.quantity)(_ + _)
+    val demand = lines.groupMapReduce(_.sku)(_.quantity.toLong)(_ + _)
     lines.flatMap { line =>
       available.get(line.sku) match {
         case None =>
@@ -106,7 +104,7 @@ object ReserveOrder {
               FailureReason.UnknownSku
             )
           )
-        case Some(qty) if demand.getOrElse(line.sku, 0) > qty =>
+        case Some(qty) if demand.getOrElse(line.sku, 0L) > qty =>
           List(
             ReservationFailure(
               line.orderItemId,

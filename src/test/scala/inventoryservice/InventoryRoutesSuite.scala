@@ -2,7 +2,7 @@ package inventoryservice
 
 import cats.effect.IO
 import munit.CatsEffectSuite
-import inventoryservice.domain.InventoryId
+import inventoryservice.domain._
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
 import org.http4s.{Method, Request, Status}

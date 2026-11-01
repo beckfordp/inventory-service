@@ -1,5 +1,6 @@
 package inventoryservice
 
+import inventoryservice.domain._
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.syntax.all._
