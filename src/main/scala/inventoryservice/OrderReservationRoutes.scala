@@ -10,13 +10,21 @@ import inventoryservice.domain._
 import org.typelevel.log4cats.StructuredLogger
 import sttp.model.StatusCode
 import sttp.tapir._
+import sttp.tapir.Schema.annotations.{description, encodedExample}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.ServerEndpoint
 
+@description("One line to reserve.")
 final case class ReserveOrderItemRequest(
+    @description("order-service line id (UUID).")
+    @encodedExample("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
     orderItemId: String,
+    @description("SKU to reserve.")
+    @encodedExample("watch-rolex-submariner")
     sku: String,
+    @description("Units to reserve, > 0.")
+    @encodedExample(2)
     quantity: Int
 )
 
@@ -24,8 +32,12 @@ object ReserveOrderItemRequest {
   implicit val codec: Codec[ReserveOrderItemRequest] = deriveCodec
 }
 
+@description("A bulk stock reservation for one order.")
 final case class ReserveOrderRequest(
+    @description("Order id (UUID); the idempotency key.")
+    @encodedExample("5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f")
     orderId: String,
+    @description("Lines to reserve, at least one; all-or-nothing.")
     items: List[ReserveOrderItemRequest]
 )
 
@@ -33,9 +45,16 @@ object ReserveOrderRequest {
   implicit val codec: Codec[ReserveOrderRequest] = deriveCodec
 }
 
+@description("One successfully reserved line.")
 final case class ReservationLineResponse(
+    @description("order-service line id (UUID).")
+    @encodedExample("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
     orderItemId: String,
+    @description("SKU held.")
+    @encodedExample("watch-rolex-submariner")
     sku: String,
+    @description("Units held.")
+    @encodedExample(2)
     quantity: Int
 )
 
@@ -43,8 +62,12 @@ object ReservationLineResponse {
   implicit val codec: Codec[ReservationLineResponse] = deriveCodec
 }
 
+@description("The lines the order now holds.")
 final case class OrderReservationResponse(
+    @description("Order id (UUID).")
+    @encodedExample("5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f")
     orderId: String,
+    @description("Every line the order now holds.")
     items: List[ReservationLineResponse]
 )
 
@@ -60,9 +83,18 @@ object OrderReservationResponse {
     )
 }
 
+@description("A line that couldn't be reserved.")
 final case class ReservationFailureResponse(
+    @description("Failed line id (UUID).")
+    @encodedExample("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
     orderItemId: String,
+    @description("SKU that could not be reserved.")
+    @encodedExample("watch-rolex-submariner")
     sku: String,
+    @description(
+      "`insufficient_stock` (summed demand exceeds available) or `unknown_sku` (no stock record)."
+    )
+    @encodedExample("insufficient_stock")
     reason: String
 )
 
@@ -70,8 +102,12 @@ object ReservationFailureResponse {
   implicit val codec: Codec[ReservationFailureResponse] = deriveCodec
 }
 
+@description("Error body for lines that couldn't be reserved.")
 final case class ReservationRejectedResponse(
+    @description("Human-readable summary; always `Insufficient stock`.")
+    @encodedExample("Insufficient stock")
     error: String,
+    @description("Every failed line, in request order.")
     failures: List[ReservationFailureResponse]
 )
 
@@ -83,6 +119,39 @@ object ReservationRejectedResponse {
   * `gluon/docs/system-design.md`. Neither publishes an event.
   */
 object OrderReservationRoutes {
+
+  private val exampleItem = ReserveOrderItemRequest(
+    "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "watch-rolex-submariner",
+    2
+  )
+
+  private val exampleRequest = ReserveOrderRequest(
+    "5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f",
+    List(exampleItem)
+  )
+
+  private val exampleLine = ReservationLineResponse(
+    "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "watch-rolex-submariner",
+    2
+  )
+
+  private val exampleResponse = OrderReservationResponse(
+    "5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f",
+    List(exampleLine)
+  )
+
+  private val exampleFailure = ReservationFailureResponse(
+    "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "watch-rolex-submariner",
+    "insufficient_stock"
+  )
+
+  private val exampleRejected = ReservationRejectedResponse(
+    "Insufficient stock",
+    List(exampleFailure)
+  )
 
   private def toFailureResponse(f: ReservationFailure) =
     ReservationFailureResponse(f.orderItemId.toString, f.sku, f.reason.wire)
@@ -109,12 +178,24 @@ object OrderReservationRoutes {
     oneOf[OrderReservationError](
       oneOfVariant[InvalidReservation](
         statusCode(StatusCode.BadRequest)
-          .and(jsonBody[ErrorResponse])
+          .and(
+            jsonBody[ErrorResponse]
+              .description(
+                "The reservation body failed validation: `orderId` or an `orderItemId` isn't a UUID, `items` is empty, a line's `quantity` is not positive, or an `orderItemId` repeats."
+              )
+              .example(ErrorResponse("orderId must be a UUID"))
+          )
           .map(e => InvalidReservation(e.error))(i => ErrorResponse(i.message))
       ),
       oneOfVariant[ReservationReleased](
         statusCode(StatusCode.Conflict)
-          .and(jsonBody[ErrorResponse])
+          .and(
+            jsonBody[ErrorResponse]
+              .description(
+                "The order's reservation was already released; stock is not held."
+              )
+              .example(ErrorResponse(releasedMessage))
+          )
           .mapDecode(_ =>
             DecodeResult.Error(
               releasedMessage,
@@ -124,7 +205,13 @@ object OrderReservationRoutes {
       ),
       oneOfVariant[ReservationRejected](
         statusCode(StatusCode.Conflict)
-          .and(jsonBody[ReservationRejectedResponse])
+          .and(
+            jsonBody[ReservationRejectedResponse]
+              .description(
+                "One or more lines couldn't be reserved; nothing was reserved."
+              )
+              .example(exampleRejected)
+          )
           .mapDecode(fromRejectedResponse)(r =>
             ReservationRejectedResponse(
               "Insufficient stock",
@@ -142,10 +229,15 @@ object OrderReservationRoutes {
   ] =
     endpoint.post
       .in("inventorys" / "order-reservations")
-      .in(jsonBody[ReserveOrderRequest])
+      .in(jsonBody[ReserveOrderRequest].example(exampleRequest))
       .out(statusCode(StatusCode.Created))
-      .out(jsonBody[OrderReservationResponse])
+      .out(jsonBody[OrderReservationResponse].example(exampleResponse))
       .errorOut(reserveOrderErrorOutput)
+      .summary("Reserve stock for an order")
+      .description(
+        "All-or-nothing bulk reservation, idempotent per `orderId`. Validates the body (UUIDs, non-empty `items`, positive `quantity`, no duplicate `orderItemId`) → 400. Reserves every line in one transaction, summing demand per SKU in `Long`, or reserves nothing and returns 409 listing every failed line. An order that still holds active lines returns its original lines and reserves nothing more (201); a released order returns 409 rather than reporting stock it no longer holds. No event is published."
+      )
+      .tag("order-reservations")
 
   def reserveOrderServerEndpoint[F[_]: Monad](
       store: InventoryStore[F],
@@ -191,11 +283,18 @@ object OrderReservationRoutes {
   private val releaseOrderEndpoint: PublicEndpoint[String, Unit, Unit, Any] =
     endpoint.post
       .in(
-        "inventorys" / "order-reservations" / path[String](
-          "orderId"
-        ) / "release"
+        "inventorys" / "order-reservations" / path[String]("orderId")
+          .description(
+            "Order id; any string is accepted and a non-UUID is a no-op."
+          )
+          .example("5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f") / "release"
       )
       .out(statusCode(StatusCode.NoContent))
+      .summary("Release an order's reservation")
+      .description(
+        "Returns every active line to `quantityAvailable` and marks its ledger lines released. Always 204: unknown, already-released or non-UUID `orderId` holds nothing, so compensation is safe to retry. No event is published."
+      )
+      .tag("order-reservations")
 
   /** Always `204`: an unknown, already-released or non-UUID `orderId` holds
     * nothing, so there is nothing to release — compensation stays safe to

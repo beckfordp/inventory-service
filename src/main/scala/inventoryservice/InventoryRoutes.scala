@@ -10,19 +10,35 @@ import org.http4s.HttpRoutes
 import org.typelevel.log4cats.StructuredLogger
 import sttp.model.StatusCode
 import sttp.tapir._
+import sttp.tapir.Schema.annotations.{description, encodedExample}
 import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.server.http4s.Http4sServerInterpreter
 
-final case class CreateInventoryRequest(sku: String, quantityAvailable: Int)
+@description("A new stock record to create.")
+final case class CreateInventoryRequest(
+    @description("Unique stock-keeping unit code.")
+    @encodedExample("watch-rolex-submariner")
+    sku: String,
+    @description("Units currently available, >= 0.")
+    @encodedExample(25)
+    quantityAvailable: Int
+)
 
 object CreateInventoryRequest {
   implicit val codec: Codec[CreateInventoryRequest] = deriveCodec
 }
 
+@description("A full stock-level update.")
 final case class UpdateInventoryRequest(
+    @description("Units currently available, >= 0.")
+    @encodedExample(25)
     quantityAvailable: Int,
+    @description(
+      "Units held by reservations, >= 0. Admin override: written directly, bypassing the reservation ledger."
+    )
+    @encodedExample(3)
     quantityReserved: Int
 )
 
@@ -30,12 +46,25 @@ object UpdateInventoryRequest {
   implicit val codec: Codec[UpdateInventoryRequest] = deriveCodec
 }
 
+@description("A stock record.")
 final case class InventoryResponse(
+    @description("Inventory record id (UUID).")
+    @encodedExample("3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90")
     id: String,
+    @description("Unique stock-keeping unit code.")
+    @encodedExample("watch-rolex-submariner")
     sku: String,
+    @description("Units currently available.")
+    @encodedExample(25)
     quantityAvailable: Int,
+    @description("Units held by active reservations.")
+    @encodedExample(3)
     quantityReserved: Int,
+    @description("UTC creation timestamp.")
+    @encodedExample("2026-11-01T12:00:00Z")
     createdAt: java.time.Instant,
+    @description("UTC last-update timestamp.")
+    @encodedExample("2026-11-01T12:05:00Z")
     updatedAt: java.time.Instant
 )
 
@@ -53,7 +82,12 @@ object InventoryResponse {
     )
 }
 
-final case class ErrorResponse(error: String)
+@description("Error body.")
+final case class ErrorResponse(
+    @description("Human-readable reason.")
+    @encodedExample("Inventory not found")
+    error: String
+)
 
 object ErrorResponse {
   implicit val codec: Codec[ErrorResponse] = deriveCodec
@@ -64,17 +98,57 @@ object InventoryRoutes {
   private val notFoundMessage = "Inventory not found"
   private val duplicateSkuMessage = "Inventory already exists for this sku"
 
+  private val exampleInventory =
+    InventoryResponse(
+      "3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90",
+      "watch-rolex-submariner",
+      25,
+      3,
+      java.time.Instant.parse("2026-11-01T12:00:00Z"),
+      java.time.Instant.parse("2026-11-01T12:05:00Z")
+    )
+
+  private val exampleCreate =
+    CreateInventoryRequest("watch-rolex-submariner", 25)
+
+  private val exampleUpdate = UpdateInventoryRequest(25, 3)
+
+  private val idPath: EndpointInput.PathCapture[InventoryId] =
+    path[InventoryId]("id")
+      .description("Inventory record id (UUID).")
+      .example(
+        InventoryId.fromUuid(
+          java.util.UUID.fromString("3f2b8c1e-7a4d-4e9b-9c2a-1d5e6f7a8b90")
+        )
+      )
+
+  private def errorBody(
+      what: String,
+      example: ErrorResponse
+  ): EndpointIO.Body[String, ErrorResponse] =
+    jsonBody[ErrorResponse].description(what).example(example)
+
   private val notFoundVariant =
     oneOfVariant[InventoryNotFound.type](
       statusCode(StatusCode.NotFound)
-        .and(jsonBody[ErrorResponse])
+        .and(
+          errorBody(
+            "No inventory record with this id.",
+            ErrorResponse(notFoundMessage)
+          )
+        )
         .map(_ => InventoryNotFound)(_ => ErrorResponse(notFoundMessage))
     )
 
   private val invalidVariant =
     oneOfVariant[InvalidInventory](
       statusCode(StatusCode.BadRequest)
-        .and(jsonBody[ErrorResponse])
+        .and(
+          errorBody(
+            "The body failed validation: a blank `sku` (create only) or a negative `quantityAvailable`/`quantityReserved`.",
+            ErrorResponse("quantityAvailable must not be negative")
+          )
+        )
         .map(e => InvalidInventory(e.error))(i => ErrorResponse(i.message))
     )
 
@@ -84,7 +158,12 @@ object InventoryRoutes {
   private val duplicateSkuVariant =
     oneOfVariant[DuplicateSku](
       statusCode(StatusCode.Conflict)
-        .and(jsonBody[ErrorResponse])
+        .and(
+          errorBody(
+            "A stock record already exists for this SKU.",
+            ErrorResponse(duplicateSkuMessage)
+          )
+        )
         .mapDecode(_ =>
           DecodeResult.Error(
             duplicateSkuMessage,
@@ -104,10 +183,15 @@ object InventoryRoutes {
   ] =
     endpoint.post
       .in("inventorys")
-      .in(jsonBody[CreateInventoryRequest])
+      .in(jsonBody[CreateInventoryRequest].example(exampleCreate))
       .out(statusCode(StatusCode.Created))
-      .out(jsonBody[InventoryResponse])
+      .out(jsonBody[InventoryResponse].example(exampleInventory))
       .errorOut(oneOf[InventoryError](invalidVariant, duplicateSkuVariant))
+      .summary("Create inventory")
+      .description(
+        "Creates a stock record for a SKU; `quantityReserved` starts at 0. Body is validated first: blank `sku` or a negative quantity → 400. SKU is unique: an existing SKU → 409. Not idempotent — each successful call creates a new record."
+      )
+      .tag("inventorys")
 
   private val updateErrorOutput: EndpointOutput[InventoryError] =
     oneOf[InventoryError](invalidVariant, notFoundVariant)
@@ -119,9 +203,14 @@ object InventoryRoutes {
     Any
   ] =
     endpoint.get
-      .in("inventorys" / path[InventoryId]("id"))
-      .out(jsonBody[InventoryResponse])
+      .in("inventorys" / idPath)
+      .out(jsonBody[InventoryResponse].example(exampleInventory))
       .errorOut(notFoundOutput)
+      .summary("Get inventory")
+      .description(
+        "One stock record by id. 404 for an unknown id; a malformed UUID is rejected by the path decoder as 400."
+      )
+      .tag("inventorys")
 
   private val updateInventoryEndpoint: PublicEndpoint[
     (InventoryId, UpdateInventoryRequest),
@@ -130,10 +219,15 @@ object InventoryRoutes {
     Any
   ] =
     endpoint.patch
-      .in("inventorys" / path[InventoryId]("id"))
-      .in(jsonBody[UpdateInventoryRequest])
-      .out(jsonBody[InventoryResponse])
+      .in("inventorys" / idPath)
+      .in(jsonBody[UpdateInventoryRequest].example(exampleUpdate))
+      .out(jsonBody[InventoryResponse].example(exampleInventory))
       .errorOut(updateErrorOutput)
+      .summary("Update inventory")
+      .description(
+        "Sets both quantities; every field is required. Idempotent. Admin override: writes `quantityReserved` directly and does not touch the `order_reservations` ledger, so it can drift from the active lines (a later release may then drive it negative). Body is checked first (400), then existence (404)."
+      )
+      .tag("inventorys")
 
   private val replaceInventoryEndpoint: PublicEndpoint[
     (InventoryId, UpdateInventoryRequest),
@@ -142,17 +236,27 @@ object InventoryRoutes {
     Any
   ] =
     endpoint.put
-      .in("inventorys" / path[InventoryId]("id"))
-      .in(jsonBody[UpdateInventoryRequest])
-      .out(jsonBody[InventoryResponse])
+      .in("inventorys" / idPath)
+      .in(jsonBody[UpdateInventoryRequest].example(exampleUpdate))
+      .out(jsonBody[InventoryResponse].example(exampleInventory))
       .errorOut(updateErrorOutput)
+      .summary("Update inventory (replace)")
+      .description(
+        "Same as PATCH — both fields required, same admin-override caveat; kept for PUT clients."
+      )
+      .tag("inventorys")
 
   private val deleteInventoryEndpoint
       : PublicEndpoint[InventoryId, InventoryError, Unit, Any] =
     endpoint.delete
-      .in("inventorys" / path[InventoryId]("id"))
+      .in("inventorys" / idPath)
       .out(statusCode(StatusCode.NoContent))
       .errorOut(notFoundOutput)
+      .summary("Delete inventory")
+      .description(
+        "Hard-deletes the record; repeat → 404. Past reservation ledger lines for the SKU are left untouched."
+      )
+      .tag("inventorys")
 
   private val listInventoryEndpoint: PublicEndpoint[
     Option[String],
@@ -162,8 +266,17 @@ object InventoryRoutes {
   ] =
     endpoint.get
       .in("inventorys")
-      .in(query[Option[String]]("sku"))
-      .out(jsonBody[List[InventoryResponse]])
+      .in(
+        query[Option[String]]("sku")
+          .description("Exact SKU to filter by.")
+          .example(Some("watch-rolex-submariner"))
+      )
+      .out(jsonBody[List[InventoryResponse]].example(List(exampleInventory)))
+      .summary("List inventory")
+      .description(
+        "Stock records ordered by SKU. Optional exact `sku` filter; an unknown filter returns `[]`. Never 404s."
+      )
+      .tag("inventorys")
 
   def createInventoryServerEndpoint[F[_]: MonadThrow](
       store: InventoryStore[F],

@@ -44,10 +44,11 @@ order-service `rest-docs_20261101`, and assert it in a test.
 - Behaviour changes; fixing the M3 ledger drift or L10 PATCH semantics (only
   documented here); AsyncAPI side (TD-19).
 
-## Appendix: proposed descriptions (NOT applied — awaiting user approval)
+## Appendix: approved descriptions (approved by user 2026-11-01; applied in Phase 3)
 
-> These are proposals only. No `.summary`/`.description`/`.tag`,
-> `@description`, `@encodedExample` or `.example` has been applied to code.
+> Approved exactly as proposed below. Phase 3 applies these
+> `.summary`/`.description`/`.tag` values, `@description`/`@encodedExample`
+> annotations and body examples to code.
 
 ### Endpoints (10 served, including health)
 | Endpoint | summary | description | tag |
