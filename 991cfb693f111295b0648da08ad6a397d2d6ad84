@@ -1,0 +1,4 @@
+Task: Phase 1 pure core (H3, M1 pure part, M2, L1-L3).
+Red: OrderReservationSuite overflow + fromWire tests, ReserveOrderPropertySuite, StockLevelsSuite (compile/assert failures).
+Green: OrderReservation.scala + InventoryError.scala moved to domain/; FailureReason is an enum with fromWire; ReserveOrder.failures sums demand in Long (two Int.MaxValue lines no longer wrap to -2 and pass); domain.Uuids.parse is the single UUID parser (ReserveOrder, InventoryId, release route, 409 decoder); domain.StockLevels validates create/update bodies; dead InventoryError cases dropped, InvalidInventory/DuplicateSku added.
+133 tests green.
