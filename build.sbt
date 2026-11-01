@@ -55,9 +55,9 @@ lazy val root = project
     asyncApiTitle := "Inventory Service",
     asyncApiVersion := "1.0",
     // TD-7.5 retired inventory-service's only Kafka events, leaving
-    // AsyncApiChannels empty. sbt-purekafka-docs' AsyncAPI validation
-    // rejects a document with no channels, and it auto-chains after
-    // Compile/compile, so disable that build-time generation explicitly:
+    // AsyncApiChannels empty. AsyncAPI 2.6 validation rejected a document
+    // with no channels; 3.0 (purekafka 0.6.0, gluon TD-19) accepts it, but
+    // there is still nothing to render, so keep build-time generation off:
     // create the output dir empty, which also leaves Universal/mappings
     // with nothing to bake into the image. The live /docs/asyncapi.json
     // route still serves the (empty) channel list. Remove this override if
