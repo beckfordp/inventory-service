@@ -1,0 +1,1 @@
+Phase 1 verification: scripts/verify-asyncapi-v3.sh passed — tests, scalafmt, spec 3.0.0 with no channels/operations, schemaRegistryCheck vs restored registry (2026-11-01).
