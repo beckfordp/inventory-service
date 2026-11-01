@@ -68,8 +68,10 @@ class InventoryDocsSuite extends CatsEffectSuite {
         variants.flatMap(v => statuses(v.output))
       case EndpointOutput.Pair(left, right, _, _) =>
         statuses(left) ++ statuses(right)
-      case EndpointOutput.MappedPair(pair, _) => statuses(pair)
-      case _                                  => Nil
+      case EndpointOutput.MappedPair(pair, _)          => statuses(pair)
+      case EndpointOutput.StatusCode(documented, _, _) =>
+        documented.keys.collect { case Left(code) => code.code }.toList
+      case _ => Nil
     }
 
   private def errorStatuses(endpoint: ServerEndpoint[Any, IO]): List[Int] =

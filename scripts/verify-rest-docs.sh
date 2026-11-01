@@ -95,8 +95,9 @@ def has_example(container):
 def params(op):
     return {p["name"]: p for p in op.get("parameters", [])}
 
-# Statuses each endpoint may list (success + its narrowed errors; tapir adds
-# 400 for undecodable inputs on its own).
+# Statuses each endpoint may list (success + its narrowed errors; tapir may
+# add 400 for undecodable inputs on its own, though not every endpoint lists
+# one).
 allowed = {
     ("/inventorys", "post"): {"201", "400", "409"},
     ("/inventorys", "get"): {"200"},
