@@ -1,0 +1,1 @@
+Phase 2 verification: sbt scalafmtCheckAll scalafmtSbtCheck test -> 140 passed, 0 failed (Postgres via Testcontainers). Prompting off: live check deferred to Phase 3's verify-order-reservations.sh.
