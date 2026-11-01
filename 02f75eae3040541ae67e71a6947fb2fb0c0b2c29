@@ -1,0 +1,1 @@
+Phase 3 verification: sbt test 140 passed; coverage 92.21%/94.05%; ./scripts/verify-order-reservations.sh run live (docker compose postgres + sbt run, under shared live lock): All checks passed, incl. TD-16.2 step 10. Prompting off.
