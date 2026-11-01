@@ -1,0 +1,1 @@
+Phase 1 verification: sbt scalafmtCheckAll scalafmtSbtCheck test -> 133 passed, 0 failed. Prompting off (.claude/prompt-off): no interactive walkthrough; pure-core change has no live surface.
