@@ -1,5 +1,6 @@
 package inventoryservice
 
+import cats.MonadThrow
 import cats.effect.Async
 import cats.syntax.semigroupk._
 import org.http4s.HttpRoutes
@@ -24,7 +25,7 @@ import sttp.tapir.server.ServerEndpoint
 object AppRoutes {
 
   /** Every endpoint this service serves and documents at `/docs`. */
-  def endpoints[F[_]: Async](
+  def endpoints[F[_]: MonadThrow](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): List[ServerEndpoint[Any, F]] =

@@ -10,11 +10,13 @@ These are the standards to keep applying as you extend this service beyond what 
 - **Domain errors are ADTs, never exceptions used for control flow.** An expected, nameable
   failure (not found, invalid input, a downstream dependency unavailable) is a value in the
   return type — `Either`, `EitherT`, or equivalent — all the way from where it's detected to the
-  HTTP edge. See `InventoryError.scala`:
+  HTTP edge. See `domain/InventoryError.scala`:
 
   ```scala
   sealed trait InventoryError
   case object InventoryNotFound extends InventoryError
+  final case class InvalidInventory(message: String) extends InventoryError
+  final case class DuplicateSku(sku: String) extends InventoryError
   ```
 
   Exceptions are reserved for genuinely unrecoverable failures (bugs, environment/startup
@@ -67,7 +69,7 @@ default/wildcard branch that silently swallows future variants.
 - Typed error ADT → `errorOut` mapping at the tapir boundary, not thrown exceptions.
 - `Option`/`Either` + pattern matching (`fold`, `case Some(...)`/`case None`) instead of
   unwrapping with `.get`.
-- Dependencies passed as explicit constructor/method parameters (see `InventoryRoutes.serverEndpoint`'s
+- Dependencies passed as explicit constructor/method parameters (see `InventoryRoutes.createInventoryServerEndpoint`'s
   `store`/`logger` parameters).
 - `purerest` (tracing, structured logging, metrics, resilience, tapir-based docs) consumed as a
   **published dependency** from GitHub Packages — never vendored or depended on via source.
