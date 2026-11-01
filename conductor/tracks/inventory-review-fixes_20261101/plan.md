@@ -14,5 +14,5 @@
 
 ## Phase 3 — Verification
 
-- [ ] Task: Extend `scripts/verify-order-reservations.sh` (duplicate sku 409, invalid quantity 400, overflow reserve 409); full suite + coverage + scalafmtCheck; run the script live.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3 — Verification' (Protocol in workflow.md)
+- [x] Task: Extend `scripts/verify-order-reservations.sh` (duplicate sku 409, invalid quantity 400, overflow reserve 409); full suite + coverage + scalafmtCheck; run the script live. `6be788a` — 140 green; 92.21% stmt / 94.05% branch; script passed live
+- [x] Task: Conductor - User Manual Verification 'Phase 3 — Verification' (Protocol in workflow.md) — prompting off: covered by `verify-order-reservations.sh` (all checks passed)
