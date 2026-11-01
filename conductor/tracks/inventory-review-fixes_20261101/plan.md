@@ -16,3 +16,8 @@
 
 - [x] Task: Extend `scripts/verify-order-reservations.sh` (duplicate sku 409, invalid quantity 400, overflow reserve 409); full suite + coverage + scalafmtCheck; run the script live. `6be788a` — 140 green; 92.21% stmt / 94.05% branch; script passed live
 - [x] Task: Conductor - User Manual Verification 'Phase 3 — Verification' (Protocol in workflow.md) — prompting off: covered by `verify-order-reservations.sh` (all checks passed)
+
+## Phase 4 — Post-plan cleanup
+
+- [x] Task: Narrow `AppRoutes.endpoints` from `Async` to `MonadThrow` (it only assembles `ServerEndpoint`s; docs serving stays under `all[F: Async]`); sync `development-guidelines.md` for the moved/added domain error types and the renamed `createInventoryServerEndpoint`. `6cefa18` — 140 green, scalafmtCheckAll green, `verify-order-reservations.sh` PASS
+- [x] Task: Conductor - User Manual Verification 'Phase 4 — Post-plan cleanup' (Protocol in workflow.md) — prompting off: covered by the full suite and the live script
