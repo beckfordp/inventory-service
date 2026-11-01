@@ -61,9 +61,44 @@ object ErrorResponse {
 
 object InventoryRoutes {
 
+  private val notFoundMessage = "Inventory not found"
+  private val duplicateSkuMessage = "Inventory already exists for this sku"
+
+  private val notFoundVariant =
+    oneOfVariant[InventoryNotFound.type](
+      statusCode(StatusCode.NotFound)
+        .and(jsonBody[ErrorResponse])
+        .map(_ => InventoryNotFound)(_ => ErrorResponse(notFoundMessage))
+    )
+
+  private val invalidVariant =
+    oneOfVariant[InvalidInventory](
+      statusCode(StatusCode.BadRequest)
+        .and(jsonBody[ErrorResponse])
+        .map(e => InvalidInventory(e.error))(i => ErrorResponse(i.message))
+    )
+
+  /** The sku isn't in the body, so decoding it back is a decode failure (only
+    * tapir clients decode; this server never does).
+    */
+  private val duplicateSkuVariant =
+    oneOfVariant[DuplicateSku](
+      statusCode(StatusCode.Conflict)
+        .and(jsonBody[ErrorResponse])
+        .mapDecode(_ =>
+          DecodeResult.Error(
+            duplicateSkuMessage,
+            new IllegalArgumentException("sku is not in the body")
+          ): DecodeResult[DuplicateSku]
+        )(_ => ErrorResponse(duplicateSkuMessage))
+    )
+
+  private val notFoundOutput: EndpointOutput[InventoryError] =
+    oneOf[InventoryError](notFoundVariant)
+
   private val createInventoryEndpoint: PublicEndpoint[
     CreateInventoryRequest,
-    Unit,
+    InventoryError,
     InventoryResponse,
     Any
   ] =
@@ -72,13 +107,10 @@ object InventoryRoutes {
       .in(jsonBody[CreateInventoryRequest])
       .out(statusCode(StatusCode.Created))
       .out(jsonBody[InventoryResponse])
+      .errorOut(oneOf[InventoryError](invalidVariant, duplicateSkuVariant))
 
-  private val notFoundOutput: EndpointOutput[InventoryError] =
-    statusCode(StatusCode.NotFound)
-      .and(jsonBody[ErrorResponse])
-      .map[InventoryError](_ => InventoryNotFound)(_ =>
-        ErrorResponse("Inventory not found")
-      )
+  private val updateErrorOutput: EndpointOutput[InventoryError] =
+    oneOf[InventoryError](invalidVariant, notFoundVariant)
 
   private val getInventoryEndpoint: PublicEndpoint[
     InventoryId,
@@ -101,7 +133,7 @@ object InventoryRoutes {
       .in("inventorys" / path[InventoryId]("id"))
       .in(jsonBody[UpdateInventoryRequest])
       .out(jsonBody[InventoryResponse])
-      .errorOut(notFoundOutput)
+      .errorOut(updateErrorOutput)
 
   private val replaceInventoryEndpoint: PublicEndpoint[
     (InventoryId, UpdateInventoryRequest),
@@ -113,7 +145,7 @@ object InventoryRoutes {
       .in("inventorys" / path[InventoryId]("id"))
       .in(jsonBody[UpdateInventoryRequest])
       .out(jsonBody[InventoryResponse])
-      .errorOut(notFoundOutput)
+      .errorOut(updateErrorOutput)
 
   private val deleteInventoryEndpoint
       : PublicEndpoint[InventoryId, InventoryError, Unit, Any] =
@@ -133,11 +165,11 @@ object InventoryRoutes {
       .in(query[Option[String]]("sku"))
       .out(jsonBody[List[InventoryResponse]])
 
-  def serverEndpoint[F[_]: MonadThrow](
+  def createInventoryServerEndpoint[F[_]: MonadThrow](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): ServerEndpoint[Any, F] =
-    createInventoryEndpoint.serverLogicSuccess[F] { req =>
+    createInventoryEndpoint.serverLogic[F] { req =>
       for {
         _ <- logger.info(
           Map(
@@ -145,14 +177,35 @@ object InventoryRoutes {
             "path" -> "/inventorys"
           )
         )("Received request")
-        entity <- store.create(req.sku, req.quantityAvailable).onError {
-          case error =>
-            logger.error(Map.empty, error)("Persisting the inventory failed")
+        result <- StockLevels.create(req.sku, req.quantityAvailable) match {
+          case Left(invalid) =>
+            logger
+              .warn(Map("error" -> invalid.message))(
+                "Invalid inventory request"
+              )
+              .as(Left(invalid))
+          case Right(stock) =>
+            store
+              .create(stock)
+              .onError { case error =>
+                logger.error(Map.empty, error)(
+                  "Persisting the inventory failed"
+                )
+              }
+              .flatMap {
+                case Right(entity) =>
+                  logger
+                    .info(Map("inventory_id" -> InventoryId.render(entity.id)))(
+                      "Request completed"
+                    )
+                    .as(Right(InventoryResponse(entity)))
+                case Left(duplicate) =>
+                  logger
+                    .warn(Map("sku" -> duplicate.sku))("Duplicate sku")
+                    .as(Left(duplicate))
+              }
         }
-        _ <- logger.info(
-          Map("inventory_id" -> InventoryId.render(entity.id))
-        )("Request completed")
-      } yield InventoryResponse(entity)
+      } yield result
     }
 
   def getInventoryServerEndpoint[F[_]: Monad](
@@ -203,18 +256,30 @@ object InventoryRoutes {
           "inventory_id" -> renderedId
         )
       )("Received request")
-      result <- store
-        .update(id, req.quantityAvailable, req.quantityReserved)
-        .flatMap {
-          case Some(entity) =>
-            logger
-              .info(Map("inventory_id" -> renderedId))("Request completed")
-              .as(Right(InventoryResponse(entity)))
-          case None =>
-            logger
-              .warn(Map("inventory_id" -> renderedId))("Inventory not found")
-              .as(Left(InventoryNotFound))
-        }
+      result <- StockLevels.update(
+        req.quantityAvailable,
+        req.quantityReserved
+      ) match {
+        case Left(invalid) =>
+          logger
+            .warn(
+              Map("inventory_id" -> renderedId, "error" -> invalid.message)
+            )(
+              "Invalid inventory request"
+            )
+            .as(Left(invalid))
+        case Right(levels) =>
+          store.update(id, levels).flatMap {
+            case Some(entity) =>
+              logger
+                .info(Map("inventory_id" -> renderedId))("Request completed")
+                .as(Right(InventoryResponse(entity)))
+            case None =>
+              logger
+                .warn(Map("inventory_id" -> renderedId))("Inventory not found")
+                .as(Left(InventoryNotFound))
+          }
+      }
     } yield result
   }
 
@@ -280,18 +345,25 @@ object InventoryRoutes {
       } yield entities.map(InventoryResponse.apply)
     }
 
+  /** Every inventory and order-reservation endpoint: the one list both `routes`
+    * and `AppRoutes` serve.
+    */
+  def serverEndpoints[F[_]: MonadThrow](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): List[ServerEndpoint[Any, F]] =
+    List(
+      createInventoryServerEndpoint(store, logger),
+      getInventoryServerEndpoint(store, logger),
+      updateInventoryServerEndpoint(store, logger),
+      replaceInventoryServerEndpoint(store, logger),
+      deleteInventoryServerEndpoint(store, logger),
+      listInventoryServerEndpoint(store, logger)
+    ) ++ OrderReservationRoutes.serverEndpoints(store, logger)
+
   def routes[F[_]: Async](
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): HttpRoutes[F] =
-    Http4sServerInterpreter[F]().toRoutes(
-      List(
-        serverEndpoint(store, logger),
-        getInventoryServerEndpoint(store, logger),
-        updateInventoryServerEndpoint(store, logger),
-        replaceInventoryServerEndpoint(store, logger),
-        deleteInventoryServerEndpoint(store, logger),
-        listInventoryServerEndpoint(store, logger)
-      ) ++ OrderReservationRoutes.serverEndpoints(store, logger)
-    )
+    Http4sServerInterpreter[F]().toRoutes(serverEndpoints(store, logger))
 }

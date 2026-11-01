@@ -41,8 +41,8 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
     val (a, b) = (sku(), sku())
     val cmd = command(line(a, 2), line(b, 3))
     for {
-      _ <- store.create(a, 5)
-      _ <- store.create(b, 5)
+      _ <- store.seed(a, 5)
+      _ <- store.seed(b, 5)
       result <- store.reserveOrder(cmd)
       levelsA <- levels(store, a)
       levelsB <- levels(store, b)
@@ -60,8 +60,8 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
     val (a, b) = (sku(), sku())
     val short = line(b, 3)
     for {
-      _ <- store.create(a, 5)
-      _ <- store.create(b, 1)
+      _ <- store.seed(a, 5)
+      _ <- store.seed(b, 1)
       result <- store.reserveOrder(command(line(a, 2), short))
       levelsA <- levels(store, a)
       levelsB <- levels(store, b)
@@ -90,8 +90,8 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
       val (a, b, missing) = (sku(), sku(), sku())
       val lines = List(line(a, 2), line(b, 2), line(missing, 1))
       for {
-        _ <- store.create(a, 1)
-        _ <- store.create(b, 1)
+        _ <- store.seed(a, 1)
+        _ <- store.seed(b, 1)
         result <- store.reserveOrder(command(lines(0), lines.drop(1): _*))
       } yield assertEquals(
         result.left.map(failuresOf(_).map(f => (f.orderItemId, f.reason))),
@@ -108,8 +108,8 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
   withStore("reserveOrder sums demand for a sku across lines") { store =>
     val (tight, exact) = (sku(), sku())
     for {
-      _ <- store.create(tight, 3)
-      _ <- store.create(exact, 4)
+      _ <- store.seed(tight, 3)
+      _ <- store.seed(exact, 4)
       tooMuch <- store.reserveOrder(command(line(tight, 2), line(tight, 2)))
       fits <- store.reserveOrder(command(line(exact, 2), line(exact, 2)))
       levelsTight <- levels(store, tight)
@@ -126,7 +126,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
     val a = sku()
     val cmd = command(line(a, 2))
     for {
-      _ <- store.create(a, 5)
+      _ <- store.seed(a, 5)
       first <- store.reserveOrder(cmd)
       again <- store.reserveOrder(cmd)
       different <- store.reserveOrder(
@@ -144,7 +144,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
     val a = sku()
     val cmd = command(line(a, 2), line(a, 1))
     for {
-      _ <- store.create(a, 5)
+      _ <- store.seed(a, 5)
       _ <- store.reserveOrder(cmd)
       _ <- store.releaseOrder(cmd.orderId)
       afterFirst <- levels(store, a)
@@ -161,7 +161,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
       val a = sku()
       val cmd = command(line(a, 2))
       for {
-        _ <- store.create(a, 5)
+        _ <- store.seed(a, 5)
         _ <- store.reserveOrder(cmd)
         _ <- store.releaseOrder(cmd.orderId)
         replay <- store.reserveOrder(cmd)
@@ -176,7 +176,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
     val a = sku()
     val (first, second) = (command(line(a, 2)), command(line(a, 1)))
     for {
-      _ <- store.create(a, 5)
+      _ <- store.seed(a, 5)
       _ <- store.reserveOrder(first)
       _ <- store.reserveOrder(second)
       _ <- store.releaseOrder(first.orderId)

@@ -21,20 +21,19 @@ class InventoryRoutesSuite extends CatsEffectSuite {
 
   private def failingStore(error: Throwable): InventoryStore[IO] =
     new InventoryStore[IO] {
-      def create(sku: String, quantityAvailable: Int): IO[Inventory] =
+      def create(stock: NewStock): IO[Either[DuplicateSku, Inventory]] =
         IO.raiseError(error)
       def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
           id: InventoryId,
-          quantityAvailable: Int,
-          quantityReserved: Int
+          levels: StockUpdate
       ): IO[Option[Inventory]] =
         IO.raiseError(error)
       def delete(id: InventoryId): IO[Boolean] = IO.raiseError(error)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.raiseError(error)
       def reserveOrder(
           command: ReserveOrder
-      ): IO[Either[OrderReservationError, OrderReservation]] =
+      ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(error)
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(error)
@@ -621,6 +620,74 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       } yield {
         assertEquals(response.status, Status.Created)
         assertEquals(spans.map(_.getName), List("POST /inventorys"))
+      }
+    }
+  }
+
+  private def errorOf(response: org.http4s.Response[IO]): IO[String] =
+    response
+      .as[io.circe.Json]
+      .map(_.hcursor.get[String]("error").getOrElse(""))
+
+  test("POST /inventorys returns 409 for a sku that already exists") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+      post = Request[IO](Method.POST, uri"/inventorys")
+        .withEntity(CreateInventoryRequest("sku-widget-1", 100))
+      _ <- routes.orNotFound.run(post)
+      response <- routes.orNotFound.run(
+        Request[IO](Method.POST, uri"/inventorys")
+          .withEntity(CreateInventoryRequest("sku-widget-1", 5))
+      )
+      error <- errorOf(response)
+    } yield {
+      assertEquals(response.status, Status.Conflict)
+      assertEquals(error, "Inventory already exists for this sku")
+    }
+  }
+
+  List(
+    ("a blank sku", CreateInventoryRequest(" ", 1), "sku must not be blank"),
+    (
+      "a negative quantityAvailable",
+      CreateInventoryRequest("sku-widget-1", -1),
+      "quantityAvailable must not be negative"
+    )
+  ).foreach { case (label, body, message) =>
+    test(s"POST /inventorys returns 400 for $label") {
+      for {
+        store <- InventoryStore.inMemory[IO]
+        routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+        response <- routes.orNotFound.run(
+          Request[IO](Method.POST, uri"/inventorys").withEntity(body)
+        )
+        error <- errorOf(response)
+        all <- store.list(None)
+      } yield {
+        assertEquals(response.status, Status.BadRequest)
+        assertEquals(error, message)
+        assertEquals(all, Nil)
+      }
+    }
+  }
+
+  List(Method.PATCH, Method.PUT).foreach { method =>
+    test(s"$method /inventorys/{id} returns 400 for a negative quantity") {
+      for {
+        store <- InventoryStore.inMemory[IO]
+        created <- store.seed("sku-widget-1", 10)
+        routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+        response <- routes.orNotFound.run(
+          Request[IO](method, uri"/inventorys" / InventoryId.render(created.id))
+            .withEntity(UpdateInventoryRequest(5, -1))
+        )
+        error <- errorOf(response)
+        after <- store.get(created.id)
+      } yield {
+        assertEquals(response.status, Status.BadRequest)
+        assertEquals(error, "quantityReserved must not be negative")
+        assertEquals(after, Some(created))
       }
     }
   }

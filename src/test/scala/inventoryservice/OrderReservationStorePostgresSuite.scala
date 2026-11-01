@@ -91,7 +91,7 @@ class OrderReservationStorePostgresSuite
         )
       )
       for {
-        _ <- store.create(a, 5)
+        _ <- store.seed(a, 5)
         _ <- store.reserveOrder(cmd)
         reserved <- ledger(postgres, cmd.orderId)
         _ <- store.releaseOrder(cmd.orderId)
@@ -107,7 +107,7 @@ class OrderReservationStorePostgresSuite
     withPostgres { (_, store) =>
       val a = sku()
       for {
-        _ <- store.create(a, 3)
+        _ <- store.seed(a, 3)
         results <- List.fill(8)(single(a, 2)).parTraverse(store.reserveOrder)
         levels <- store.list(Some(a))
       } yield {
@@ -125,7 +125,7 @@ class OrderReservationStorePostgresSuite
       val a = sku()
       val cmd = single(a, 2)
       for {
-        _ <- store.create(a, 10)
+        _ <- store.seed(a, 10)
         results <- List.fill(6)(cmd).parTraverse(store.reserveOrder)
         levels <- store.list(Some(a))
         lines <- ledger(postgres, cmd.orderId)
@@ -158,8 +158,8 @@ class OrderReservationStorePostgresSuite
         )
       }
       for {
-        _ <- store.create(a, 100)
-        _ <- store.create(b, 100)
+        _ <- store.seed(a, 100)
+        _ <- store.seed(b, 100)
         results <- orders.parTraverse(store.reserveOrder)
         _ <- orders.parTraverse_(o => store.releaseOrder(o.orderId))
         levels <- (store.list(Some(a)), store.list(Some(b))).tupled

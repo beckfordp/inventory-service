@@ -18,7 +18,7 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
   private def setup(stock: (String, Int)*): IO[HttpRoutes[IO]] =
     for {
       store <- InventoryStore.inMemory[IO]
-      _ <- stock.toList.traverse_ { case (sku, qty) => store.create(sku, qty) }
+      _ <- stock.toList.traverse_ { case (sku, qty) => store.seed(sku, qty) }
     } yield InventoryRoutes.routes[IO](store, NoOpLogger[IO])
 
   private def reserve(routes: HttpRoutes[IO], body: Json) =

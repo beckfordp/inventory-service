@@ -45,7 +45,7 @@ class InventoryStorePostgresSuite
       Migrations.run[IO](config) *> InventoryStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
-          store.create(uniqueSku(), 100).map { entity =>
+          store.seed(uniqueSku(), 100).map { entity =>
             assert(InventoryId.render(entity.id).nonEmpty)
           }
         }
@@ -60,26 +60,24 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create(uniqueSku(), 100)
-            second <- store.create(uniqueSku(), 100)
+            first <- store.seed(uniqueSku(), 100)
+            second <- store.seed(uniqueSku(), 100)
           } yield assertNotEquals(first.id, second.id)
         }
     }
   }
 
-  test("create fails for a sku that already exists (unique constraint)") {
+  test("create returns DuplicateSku for a sku that already exists") {
     withContainers { postgres =>
       val config = configFor(postgres)
       Migrations.run[IO](config) *> InventoryStore
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            _ <- store.create("sku-widget-1", 100)
-            second <- store.create("sku-widget-1", 50).attempt
-          } yield assert(
-            second.isLeft,
-            s"expected a duplicate sku to be rejected, got: $second"
-          )
+            sku = uniqueSku()
+            _ <- store.seed(sku, 100)
+            second <- store.create(NewStock(sku, 50))
+          } yield assertEquals(second, Left(DuplicateSku(sku)))
         }
     }
   }
@@ -91,7 +89,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create(uniqueSku(), 100)
+            created <- store.seed(uniqueSku(), 100)
             found <- store.get(created.id)
           } yield assertEquals(found, Some(created))
         }
@@ -118,8 +116,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create(uniqueSku(), 100)
-            updated <- store.update(created.id, 100, 0)
+            created <- store.seed(uniqueSku(), 100)
+            updated <- store.setLevels(created.id, 100, 0)
           } yield {
             assertEquals(updated.map(_.id), Some(created.id))
             assert(
@@ -138,7 +136,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .update(InventoryId.fromUuid(UUID.randomUUID()), 100, 0)
+            .setLevels(InventoryId.fromUuid(UUID.randomUUID()), 100, 0)
             .map(assertEquals(_, None))
         }
     }
@@ -153,7 +151,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create(uniqueSku(), 100)
+            created <- store.seed(uniqueSku(), 100)
             deleted <- store.delete(created.id)
             found <- store.get(created.id)
           } yield {
@@ -210,7 +208,7 @@ class InventoryStorePostgresSuite
             .postgres[IO](config, testMeter.meter)
             .use { store =>
               for {
-                created <- store.create(uniqueSku(), 100)
+                created <- store.seed(uniqueSku(), 100)
                 _ <- store.get(created.id)
                 metrics <- testMeter.collectMetrics
               } yield {
@@ -259,7 +257,7 @@ class InventoryStorePostgresSuite
             .postgres[IO](unreachableConfig, testMeter.meter)
             .use { store =>
               for {
-                result <- store.create(uniqueSku(), 100).attempt
+                result <- store.seed(uniqueSku(), 100).attempt
                 metrics <- testMeter.collectMetrics
               } yield {
                 assert(
@@ -302,9 +300,9 @@ class InventoryStorePostgresSuite
           val sku = uniqueSku()
           for {
             ready <- store.ping
-            created <- store.create(sku, 100)
+            created <- store.seed(sku, 100)
             read1 <- store.get(created.id)
-            updated <- store.update(created.id, 100, 0)
+            updated <- store.setLevels(created.id, 100, 0)
             read2 <- store.get(created.id)
             deleted <- store.delete(created.id)
             read3 <- store.get(created.id)
@@ -329,8 +327,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            first <- store.create(uniqueSku(), 100)
-            second <- store.create(uniqueSku(), 50)
+            first <- store.seed(uniqueSku(), 100)
+            second <- store.seed(uniqueSku(), 50)
             found <- store.list(None)
           } yield {
             val foundIds = found.map(_.id).toSet
@@ -338,6 +336,7 @@ class InventoryStorePostgresSuite
               foundIds.contains(first.id) && foundIds.contains(second.id),
               s"expected both created entities in the list, got: $found"
             )
+            assertEquals(found.map(_.sku), found.map(_.sku).sorted)
           }
         }
     }
@@ -351,8 +350,8 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           for {
-            created <- store.create(sku, 100)
-            _ <- store.create(uniqueSku(), 50)
+            created <- store.seed(sku, 100)
+            _ <- store.seed(uniqueSku(), 50)
             found <- store.list(Some(sku))
           } yield assertEquals(found, List(created))
         }
@@ -394,7 +393,7 @@ class InventoryStorePostgresSuite
               .toOption
               .get
           for {
-            _ <- store.create(sku, 100)
+            _ <- store.seed(sku, 100)
             // 5 concurrent bulk reserves of 30 each = 150 requested against
             // 100 available; at most 3 can succeed (3 * 30 = 90 <= 100, a
             // 4th would push it to 120).

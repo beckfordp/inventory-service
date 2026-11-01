@@ -178,7 +178,7 @@ object OrderReservationRoutes {
                 val detail = error match {
                   case ReservationRejected(failures) =>
                     "failed_lines" -> failures.size.toString
-                  case other => "error" -> other.toString
+                  case ReservationReleased(_) => "error" -> "released"
                 }
                 logger
                   .warn(context + detail)("Reservation rejected")

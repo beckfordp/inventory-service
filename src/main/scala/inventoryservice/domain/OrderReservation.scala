@@ -47,14 +47,18 @@ sealed trait OrderReservationError
 final case class InvalidReservation(message: String)
     extends OrderReservationError
 
+/** The outcomes of a well-formed reserve that still can't hold stock: the store
+  * returns only these, never `InvalidReservation`.
+  */
+sealed trait ReservationConflict extends OrderReservationError
+
 final case class ReservationRejected(failures: NonEmptyList[ReservationFailure])
-    extends OrderReservationError
+    extends ReservationConflict
 
 /** The order's reservation was already released: replaying it must not report
   * stock as held when none is.
   */
-final case class ReservationReleased(orderId: UUID)
-    extends OrderReservationError
+final case class ReservationReleased(orderId: UUID) extends ReservationConflict
 
 object ReserveOrder {
 

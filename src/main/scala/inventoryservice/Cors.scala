@@ -5,11 +5,10 @@ import org.http4s.{HttpRoutes, Method}
 import org.http4s.server.middleware.CORS
 import org.typelevel.ci._
 
-/** CORS policy for a freshly generated service: allow all origins (no frontend
-  * origin decided yet at generation time), restricted to the methods/headers
-  * this template's own routes actually use, credentials disallowed (required
-  * anyway alongside an allow-all-origins policy — browsers reject credentialed
-  * requests against a wildcard origin).
+/** CORS policy: allow all origins (no single frontend origin is pinned),
+  * restricted to the methods/headers this service's routes actually use,
+  * credentials disallowed (required anyway alongside an allow-all-origins
+  * policy — browsers reject credentialed requests against a wildcard origin).
   */
 object Cors {
 

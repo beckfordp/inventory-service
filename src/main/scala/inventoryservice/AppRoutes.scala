@@ -4,10 +4,12 @@ import cats.effect.Async
 import cats.syntax.semigroupk._
 import org.http4s.HttpRoutes
 import org.http4s.server.staticcontent.{FileService, fileService}
+import org.typelevel.log4cats.StructuredLogger
 import purekafka.docs.{AsyncApiChannel, Docs => AsyncApiDocs}
 import purerest.docs.Docs
 import purerest.metrics.ServerMetrics
 import purerest.tracing.ServerTracing
+import sttp.tapir.server.ServerEndpoint
 
 /** Assembles inventory-service's full set of `HttpRoutes[F]` — business routes,
   * OpenAPI/Swagger docs, AsyncAPI docs (raw spec + rendered static HTML) — and
@@ -21,6 +23,14 @@ import purerest.tracing.ServerTracing
   */
 object AppRoutes {
 
+  /** Every endpoint this service serves and documents at `/docs`. */
+  def endpoints[F[_]: Async](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): List[ServerEndpoint[Any, F]] =
+    InventoryRoutes.serverEndpoints[F](store, logger) ++
+      HealthRoutes.serverEndpoints[F](store)
+
   def all[F[_]: Async](
       store: InventoryStore[F],
       telemetry: Telemetry[F],
@@ -30,22 +40,7 @@ object AppRoutes {
     val docsRoutes = Docs.routes[F](
       "Inventory Service",
       "1.0",
-      List(
-        InventoryRoutes.serverEndpoint[F](store, telemetry.logger),
-        InventoryRoutes.getInventoryServerEndpoint[F](store, telemetry.logger),
-        InventoryRoutes
-          .updateInventoryServerEndpoint[F](store, telemetry.logger),
-        InventoryRoutes
-          .replaceInventoryServerEndpoint[F](store, telemetry.logger),
-        InventoryRoutes
-          .deleteInventoryServerEndpoint[F](store, telemetry.logger),
-        InventoryRoutes
-          .listInventoryServerEndpoint[F](store, telemetry.logger)
-      ) ++ OrderReservationRoutes
-        .serverEndpoints[F](store, telemetry.logger) ++ List(
-        HealthRoutes.healthServerEndpoint[F],
-        HealthRoutes.readyServerEndpoint[F](store)
-      )
+      endpoints[F](store, telemetry.logger)
     )
     val asyncApiRoutes =
       AsyncApiDocs.routes[F]("Inventory Service", "1.0", channels)

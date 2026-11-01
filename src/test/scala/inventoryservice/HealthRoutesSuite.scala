@@ -10,19 +10,18 @@ class HealthRoutesSuite extends CatsEffectSuite {
 
   private val readyStore: InventoryStore[IO] =
     new InventoryStore[IO] {
-      def create(sku: String, quantityAvailable: Int): IO[Inventory] =
+      def create(stock: NewStock): IO[Either[DuplicateSku, Inventory]] =
         IO.raiseError(new NotImplementedError())
       def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
           id: InventoryId,
-          quantityAvailable: Int,
-          quantityReserved: Int
+          levels: StockUpdate
       ): IO[Option[Inventory]] = IO.pure(None)
       def delete(id: InventoryId): IO[Boolean] = IO.pure(false)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder
-      ): IO[Either[OrderReservationError, OrderReservation]] =
+      ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())
@@ -31,19 +30,18 @@ class HealthRoutesSuite extends CatsEffectSuite {
 
   private val notReadyStore: InventoryStore[IO] =
     new InventoryStore[IO] {
-      def create(sku: String, quantityAvailable: Int): IO[Inventory] =
+      def create(stock: NewStock): IO[Either[DuplicateSku, Inventory]] =
         IO.raiseError(new NotImplementedError())
       def get(id: InventoryId): IO[Option[Inventory]] = IO.pure(None)
       def update(
           id: InventoryId,
-          quantityAvailable: Int,
-          quantityReserved: Int
+          levels: StockUpdate
       ): IO[Option[Inventory]] = IO.pure(None)
       def delete(id: InventoryId): IO[Boolean] = IO.pure(false)
       def list(sku: Option[String]): IO[List[Inventory]] = IO.pure(Nil)
       def reserveOrder(
           command: ReserveOrder
-      ): IO[Either[OrderReservationError, OrderReservation]] =
+      ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())

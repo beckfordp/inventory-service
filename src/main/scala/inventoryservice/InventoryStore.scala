@@ -1,15 +1,15 @@
 package inventoryservice
 
 import cats.data.NonEmptyList
-import cats.effect.{Async, Ref, Resource, Sync}
-import cats.effect.std.Console
+import cats.effect.{Async, Clock, Concurrent, Ref, Resource}
+import cats.effect.std.{Console, UUIDGen}
 import cats.syntax.all._
 import inventoryservice.domain._
 import fs2.io.net.Network
 import org.typelevel.otel4s.Attribute
 import org.typelevel.otel4s.metrics.Meter
 import purerest.metrics.LatencyBuckets
-import skunk.Session
+import skunk.{Session, SqlState}
 import skunk.codec.all._
 import skunk.implicits._
 
@@ -27,14 +27,14 @@ final case class Inventory(
 )
 
 trait InventoryStore[F[_]] {
-  def create(sku: String, quantityAvailable: Int): F[Inventory]
+
+  /** `DuplicateSku` if the sku already has a stock record (sku is unique). */
+  def create(stock: NewStock): F[Either[DuplicateSku, Inventory]]
   def get(id: InventoryId): F[Option[Inventory]]
-  def update(
-      id: InventoryId,
-      quantityAvailable: Int,
-      quantityReserved: Int
-  ): F[Option[Inventory]]
+  def update(id: InventoryId, levels: StockUpdate): F[Option[Inventory]]
   def delete(id: InventoryId): F[Boolean]
+
+  /** Ordered by sku. */
   def list(sku: Option[String]): F[List[Inventory]]
 
   /** All-or-nothing bulk reserve (TD-7.1, ADR 0018), idempotent per `orderId`:
@@ -44,7 +44,7 @@ trait InventoryStore[F[_]] {
     */
   def reserveOrder(
       command: ReserveOrder
-  ): F[Either[OrderReservationError, OrderReservation]]
+  ): F[Either[ReservationConflict, OrderReservation]]
 
   /** Returns every active ledger line's quantity to `quantityAvailable` and
     * marks it released (TD-7.2). Unknown or already-released `orderId` is a
@@ -91,7 +91,7 @@ object InventoryStore {
     }
   }
 
-  def inMemory[F[_]: Sync]: F[InventoryStore[F]] =
+  def inMemory[F[_]: Concurrent: Clock: UUIDGen]: F[InventoryStore[F]] =
     Ref.of[F, InMemoryState](InMemoryState(Map.empty, Map.empty)).map { state =>
       // Existing CRUD methods keep operating on just the stock map.
       val ref = Ref.lens[F, InMemoryState, Map[InventoryId, Inventory]](state)(
@@ -99,40 +99,41 @@ object InventoryStore {
         s => inventory => s.copy(inventory = inventory)
       )
       new InventoryStore[F] {
-        def create(sku: String, quantityAvailable: Int): F[Inventory] =
+        def create(stock: NewStock): F[Either[DuplicateSku, Inventory]] =
           for {
-            id <- Sync[F].delay(
-              InventoryId.fromUuid(java.util.UUID.randomUUID())
-            )
-            now <- Sync[F].realTimeInstant
+            id <- UUIDGen[F].randomUUID.map(InventoryId.fromUuid)
+            now <- Clock[F].realTimeInstant
             entity = Inventory(
               id,
-              sku,
-              quantityAvailable,
+              stock.sku,
+              stock.quantityAvailable,
               defaultQuantityReserved,
               now,
               now
             )
-            _ <- ref.update(_ + (id -> entity))
-          } yield entity
+            result <- ref.modify { entities =>
+              if (entities.values.exists(_.sku == stock.sku))
+                (entities, Left(DuplicateSku(stock.sku)))
+              else (entities + (id -> entity), Right(entity))
+            }
+          } yield result
 
         def get(id: InventoryId): F[Option[Inventory]] = ref.get.map(_.get(id))
 
         def update(
             id: InventoryId,
-            quantityAvailable: Int,
-            quantityReserved: Int
+            levels: StockUpdate
         ): F[Option[Inventory]] =
           for {
-            now <- Sync[F].realTimeInstant
+            now <- Clock[F].realTimeInstant
             updated <- ref.modify { entities =>
               entities.get(id) match {
                 case None           => (entities, None)
                 case Some(existing) =>
                   val next =
                     existing.copy(
-                      quantityAvailable = quantityAvailable,
-                      quantityReserved = quantityReserved,
+                      quantityAvailable = levels.quantityAvailable,
+                      quantityReserved = levels.quantityReserved,
                       updatedAt = now
                     )
                   (entities + (id -> next), Some(next))
@@ -148,17 +149,14 @@ object InventoryStore {
 
         def list(sku: Option[String]): F[List[Inventory]] =
           ref.get.map { entities =>
-            sku match {
-              case None         => entities.values.toList
-              case Some(filter) =>
-                entities.values.filter(_.sku == filter).toList
-            }
+            val all = entities.values.toList.sortBy(_.sku)
+            sku.fold(all)(filter => all.filter(_.sku == filter))
           }
 
         def reserveOrder(
             command: ReserveOrder
-        ): F[Either[OrderReservationError, OrderReservation]] =
-          Sync[F].realTimeInstant.flatMap { now =>
+        ): F[Either[ReservationConflict, OrderReservation]] =
+          Clock[F].realTimeInstant.flatMap { now =>
             state.modify { current =>
               val lines = command.items.toList
               current.ledger.get(command.orderId) match {
@@ -197,7 +195,7 @@ object InventoryStore {
           }
 
         def releaseOrder(orderId: UUID): F[Unit] =
-          Sync[F].realTimeInstant.flatMap { now =>
+          Clock[F].realTimeInstant.flatMap { now =>
             state.update { current =>
               current.ledger.get(orderId) match {
                 case None        => current
@@ -213,7 +211,7 @@ object InventoryStore {
             }
           }
 
-        def ping: F[Boolean] = Sync[F].pure(true)
+        def ping: F[Boolean] = Concurrent[F].pure(true)
       }
     }
 
@@ -262,6 +260,7 @@ object InventoryStore {
     sql"""
       SELECT id, sku, quantity_available, quantity_reserved, created_at, updated_at
       FROM "inventory"
+      ORDER BY sku
     """.query(uuid *: text *: int4 *: int4 *: timestamptz *: timestamptz)
 
   private val selectInventoryBySku: skunk.Query[
@@ -376,9 +375,11 @@ object InventoryStore {
               } yield a
 
             new InventoryStore[F] {
-              def create(sku: String, quantityAvailable: Int): F[Inventory] =
-                for {
-                  id <- Sync[F].delay(UUID.randomUUID())
+              def create(
+                  stock: NewStock
+              ): F[Either[DuplicateSku, Inventory]] =
+                (for {
+                  id <- UUIDGen[F].randomUUID
                   timestamps <- timed("insert") {
                     pool.use { session =>
                       session
@@ -387,8 +388,8 @@ object InventoryStore {
                           _.unique(
                             (
                               id,
-                              sku,
-                              quantityAvailable,
+                              stock.sku,
+                              stock.quantityAvailable,
                               defaultQuantityReserved
                             )
                           )
@@ -399,12 +400,14 @@ object InventoryStore {
                   val (createdAt, updatedAt) = timestamps
                   Inventory(
                     InventoryId.fromUuid(id),
-                    sku,
-                    quantityAvailable,
+                    stock.sku,
+                    stock.quantityAvailable,
                     defaultQuantityReserved,
                     createdAt.toInstant,
                     updatedAt.toInstant
-                  )
+                  ).asRight[DuplicateSku]
+                }).recover { case SqlState.UniqueViolation(_) =>
+                  Left(DuplicateSku(stock.sku))
                 }
 
               def get(id: InventoryId): F[Option[Inventory]] =
@@ -434,8 +437,7 @@ object InventoryStore {
 
               def update(
                   id: InventoryId,
-                  quantityAvailable: Int,
-                  quantityReserved: Int
+                  levels: StockUpdate
               ): F[Option[Inventory]] =
                 timed("update") {
                   pool.use { session =>
@@ -444,8 +446,8 @@ object InventoryStore {
                       .flatMap(
                         _.option(
                           (
-                            quantityAvailable,
-                            quantityReserved,
+                            levels.quantityAvailable,
+                            levels.quantityReserved,
                             InventoryId.uuid(id)
                           )
                         )
@@ -528,7 +530,7 @@ object InventoryStore {
 
               def reserveOrder(
                   command: ReserveOrder
-              ): F[Either[OrderReservationError, OrderReservation]] = {
+              ): F[Either[ReservationConflict, OrderReservation]] = {
                 val lines = command.items.toList
                 timed("reserve_order") {
                   pool.use { session =>
@@ -543,7 +545,7 @@ object InventoryStore {
                         result <- NonEmptyList.fromList(existing) match {
                           case Some(rows) if !rows.exists(_._4) =>
                             (Left(ReservationReleased(command.orderId)): Either[
-                              OrderReservationError,
+                              ReservationConflict,
                               OrderReservation
                             ]).pure[F]
                           case Some(rows) =>
@@ -554,7 +556,7 @@ object InventoryStore {
                                   ReservationLine(itemId, sku, qty)
                                 }
                               )
-                            ): Either[OrderReservationError, OrderReservation])
+                            ): Either[ReservationConflict, OrderReservation])
                               .pure[F]
                           case None => reserveNew(session, command, lines)
                         }
@@ -568,7 +570,7 @@ object InventoryStore {
                   session: Session[F],
                   command: ReserveOrder,
                   lines: List[ReservationLine]
-              ): F[Either[OrderReservationError, OrderReservation]] =
+              ): F[Either[ReservationConflict, OrderReservation]] =
                 for {
                   select <- session.prepare(selectAvailableForUpdate)
                   available <- lines
@@ -584,7 +586,7 @@ object InventoryStore {
                   ) match {
                     case Some(failures) =>
                       (Left(ReservationRejected(failures)): Either[
-                        OrderReservationError,
+                        ReservationConflict,
                         OrderReservation
                       ]).pure[F]
                     case None =>
@@ -609,7 +611,7 @@ object InventoryStore {
                       } yield (Right(
                         OrderReservation(command.orderId, lines)
                       ): Either[
-                        OrderReservationError,
+                        ReservationConflict,
                         OrderReservation
                       ])
                   }

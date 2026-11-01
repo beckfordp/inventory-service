@@ -15,7 +15,8 @@ class InventoryDocsSuite extends CatsEffectSuite {
   ) {
     for {
       store <- InventoryStore.inMemory[IO]
-      endpoint = InventoryRoutes.serverEndpoint[IO](store, NoOpLogger[IO])
+      endpoint = InventoryRoutes
+        .createInventoryServerEndpoint[IO](store, NoOpLogger[IO])
       routes = Docs.routes[IO]("Inventory Service", "1.0", List(endpoint))
       request = Request[IO](Method.POST, uri"/inventorys")
         .withEntity(CreateInventoryRequest("sku-widget-1", 100))

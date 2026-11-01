@@ -30,8 +30,11 @@ object HealthRoutes {
       store.ping.map(ready => if (ready) Right(()) else Left(()))
     }
 
+  def serverEndpoints[F[_]: Monad](
+      store: InventoryStore[F]
+  ): List[ServerEndpoint[Any, F]] =
+    List(healthServerEndpoint[F], readyServerEndpoint(store))
+
   def routes[F[_]: Async](store: InventoryStore[F]): HttpRoutes[F] =
-    Http4sServerInterpreter[F]().toRoutes(
-      List(healthServerEndpoint[F], readyServerEndpoint(store))
-    )
+    Http4sServerInterpreter[F]().toRoutes(serverEndpoints(store))
 }

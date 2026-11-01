@@ -11,17 +11,12 @@ final case class PostgresConfig(
     password: String
 ) derives ConfigReader
 
-final case class KafkaConfig(
-    bootstrapServers: String
-) derives ConfigReader
-
 final case class InventoryServiceConfig(
     port: Int,
     metricsPort: Int,
     serviceName: String,
     asyncApiHtmlDir: String,
-    postgres: PostgresConfig,
-    kafka: KafkaConfig
+    postgres: PostgresConfig
 ) derives ConfigReader
 
 object InventoryServiceConfig {
