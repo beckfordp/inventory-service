@@ -1,6 +1,6 @@
 # Inventory review fixes — Implementation Plan
 
-## Phase 1 — Pure core (H3, M1, M2, L2, L3)
+## Phase 1 — Pure core (H3, M1, M2, L2, L3) [checkpoint: 68ea806]
 
 - [x] Task: Write failing tests: overflow demand rejected + ScalaCheck property; `FailureReason.fromWire`; `StockLevels` create/update validation; confirm failure. `991cfb6` — red: compile failures + overflow assertion
 - [x] Task: Implement: move `OrderReservation.scala` to `domain/`; `Long` demand; `FailureReason` enum + `fromWire`; shared UUID parser; `domain.StockLevels`. `991cfb6` — also moved `InventoryError` to `domain/` and dropped its dead cases (L1)
