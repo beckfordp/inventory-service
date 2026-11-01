@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 - [x] **Track: Transactional outbox for inventory-service (TD-3.3, ADR 0008)**
   *Link: [./tracks/outbox_20261012/](./tracks/outbox_20261012/)*
 
-- [~] **Track: inventory-service review fixes (TD-16.2)**
-  *Link: [./tracks/inventory-review-fixes_20261101/](./tracks/inventory-review-fixes_20261101/)*
-
 ---
 
 ## Backlog

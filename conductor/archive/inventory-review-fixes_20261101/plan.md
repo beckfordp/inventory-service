@@ -21,3 +21,7 @@
 
 - [x] Task: Narrow `AppRoutes.endpoints` from `Async` to `MonadThrow` (it only assembles `ServerEndpoint`s; docs serving stays under `all[F: Async]`); sync `development-guidelines.md` for the moved/added domain error types and the renamed `createInventoryServerEndpoint`. `6cefa18` — 140 green, scalafmtCheckAll green, `verify-order-reservations.sh` PASS
 - [x] Task: Conductor - User Manual Verification 'Phase 4 — Post-plan cleanup' (Protocol in workflow.md) — prompting off: covered by the full suite and the live script
+
+## Phase: Review Fixes
+
+- [x] Task: Apply review suggestions — `/conductor:review` (prompting off): no High/Medium findings. Low notes only (test placement for `Uuids.parse`, fully-qualified `InventoryId` in `TestStores`); no code changes.
