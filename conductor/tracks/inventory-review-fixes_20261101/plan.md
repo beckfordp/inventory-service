@@ -2,9 +2,9 @@
 
 ## Phase 1 — Pure core (H3, M1, M2, L2, L3)
 
-- [ ] Task: Write failing tests: overflow demand rejected + ScalaCheck property; `FailureReason.fromWire`; `StockLevels` create/update validation; confirm failure.
-- [ ] Task: Implement: move `OrderReservation.scala` to `domain/`; `Long` demand; `FailureReason` enum + `fromWire`; shared UUID parser; `domain.StockLevels`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1 — Pure core' (Protocol in workflow.md)
+- [x] Task: Write failing tests: overflow demand rejected + ScalaCheck property; `FailureReason.fromWire`; `StockLevels` create/update validation; confirm failure. `991cfb6` — red: compile failures + overflow assertion
+- [x] Task: Implement: move `OrderReservation.scala` to `domain/`; `Long` demand; `FailureReason` enum + `fromWire`; shared UUID parser; `domain.StockLevels`. `991cfb6` — also moved `InventoryError` to `domain/` and dropped its dead cases (L1)
+- [x] Task: Conductor - User Manual Verification 'Phase 1 — Pure core' (Protocol in workflow.md) — prompting off: covered by suite (133 green)
 
 ## Phase 2 — Store and routes (H1, H2, M1, L1, L4–L8)
 
