@@ -12,7 +12,7 @@
 - [x] Task: Implement: `create` returns `Either[DuplicateSku, Inventory]`; validation wired into routes; exhaustive rejection logging; `serverEndpoints` list; `UUIDGen`/narrowed in-memory bound; drop dead config/error cases; Cors comment. `986898a` — deviation: store's `reserveOrder` now returns the narrower `ReservationConflict` (Rejected | Released), which is what makes the logging match exhaustive; test-only `TestStores.seed` keeps 45 fixtures one call
 - [x] Task: Conductor - User Manual Verification 'Phase 2 — Store and routes' (Protocol in workflow.md) — prompting off: covered by suite (140 green, incl. Postgres testcontainers); live run in Phase 3
 
-## Phase 3 — Verification
+## Phase 3 — Verification [checkpoint: 02f75ea]
 
 - [x] Task: Extend `scripts/verify-order-reservations.sh` (duplicate sku 409, invalid quantity 400, overflow reserve 409); full suite + coverage + scalafmtCheck; run the script live. `6be788a` — 140 green; 92.21% stmt / 94.05% branch; script passed live
 - [x] Task: Conductor - User Manual Verification 'Phase 3 — Verification' (Protocol in workflow.md) — prompting off: covered by `verify-order-reservations.sh` (all checks passed)
