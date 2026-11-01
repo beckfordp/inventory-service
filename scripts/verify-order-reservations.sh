@@ -6,7 +6,8 @@ set -euo pipefail
 # service, then drives real HTTP traffic to confirm a bulk reserve is
 # all-or-nothing and reports every failed line, a repeated reserve is
 # idempotent, the ledger records each line, and release restores stock exactly
-# once and is safe to repeat.
+# once and is safe to repeat. Step 10 covers the TD-16.2 review fixes
+# (duplicate sku 409, negative quantities 400, Int-overflowing demand 409).
 #
 # Usage: ./scripts/verify-order-reservations.sh
 
@@ -146,7 +147,18 @@ empty="$(order "$(uuid)" "")"
 check "empty items" "400" "$(post /inventorys/order-reservations "$empty" | tail -1)"
 
 echo
-echo "10. OpenAPI documents both endpoints..."
+echo "10. Review fixes (TD-16.2): duplicate sku, invalid stock levels, overflowing demand..."
+check "duplicate sku returns 409" "409" "$(post /inventorys "$stock_a" | tail -1)"
+negative="$(stock "verify-neg-$(date +%s)" -1)"
+check "negative quantityAvailable returns 400" "400" "$(post /inventorys "$negative" | tail -1)"
+A_ID="$(curl -s "$BASE/inventorys?sku=$A" | json "d[0]['id']")"
+check "PATCH negative quantityReserved returns 400" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/inventorys/$A_ID" -H "Content-Type: application/json" -d '{"quantityAvailable":5,"quantityReserved":-1}')"
+huge="$(order "$(uuid)" "$(item "$(uuid)" "$A" 2147483647),$(item "$(uuid)" "$A" 2147483647)")"
+check "Int-overflowing demand returns 409" "409" "$(post /inventorys/order-reservations "$huge" | tail -1)"
+check "A untouched by overflow" "5/0" "$(levels "$A")"
+
+echo
+echo "11. OpenAPI documents both endpoints..."
 docs="$(curl -s $BASE/docs/docs.yaml)"
 check "reserve documented" "yes" "$(echo "$docs" | grep -q '/inventorys/order-reservations:' && echo yes || echo no)"
 check "release documented" "yes" "$(echo "$docs" | grep -q '/inventorys/order-reservations/{orderId}/release:' && echo yes || echo no)"
