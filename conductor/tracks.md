@@ -5,7 +5,7 @@ This file tracks all major tracks for the project.
 - [x] **Track: Transactional outbox for inventory-service (TD-3.3, ADR 0008)**
   *Link: [./tracks/outbox_20261012/](./tracks/outbox_20261012/)*
 
-- [ ] **Track: AsyncAPI 3.0 docs and consumed-event descriptions (gluon TD-19.3/19.4)**
+- [~] **Track: AsyncAPI 3.0 docs and consumed-event descriptions (gluon TD-19.3/19.4)**
   *Link: [./tracks/asyncapi-v3_20261101/](./tracks/asyncapi-v3_20261101/)*
 
 ---
