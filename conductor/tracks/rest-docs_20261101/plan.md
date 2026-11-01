@@ -13,5 +13,5 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Descriptions and examples' (Protocol in workflow.md) — prompting off: covered by suite
 
 ## Phase 4: Smoke test
-- [ ] Task: `scripts/verify-rest-docs.sh` — run service, fetch `/docs/docs.yaml`, assert summaries/descriptions/examples + narrowed errors; PASS
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Smoke test' (Protocol in workflow.md) — prompting off: covered by `scripts/verify-rest-docs.sh`
+- [x] Task: `scripts/verify-rest-docs.sh` — run service, fetch `/docs/docs.yaml`, assert summaries/descriptions/examples + narrowed errors; PASS (all 10 endpoints, params, DTO schemas, body examples, narrowed statuses)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Smoke test' (Protocol in workflow.md) — prompting off: covered by `scripts/verify-rest-docs.sh`
