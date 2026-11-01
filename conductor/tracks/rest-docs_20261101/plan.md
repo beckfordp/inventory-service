@@ -15,3 +15,6 @@
 ## Phase 4: Smoke test
 - [x] Task: `scripts/verify-rest-docs.sh` — run service, fetch `/docs/docs.yaml`, assert summaries/descriptions/examples + narrowed errors; PASS (all 10 endpoints, params, DTO schemas, body examples, narrowed statuses)
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Smoke test' (Protocol in workflow.md) — prompting off: covered by `scripts/verify-rest-docs.sh`
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions ef5c294
