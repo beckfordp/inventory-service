@@ -1,7 +1,7 @@
 # Plan — inventory-service: REST docs convention (gluon TD-20.6)
 
 ## Phase 1: purerestlib 0.7.3
-- [x] Task: bump `purerestlibVersion` 0.4.0 → 0.7.3 (+ aligned pins); fix API drift until suite green; sync `tech-stack.md` — other pins already aligned, no API drift; 140/140 (incl. Postgres Testcontainers), scalafmtCheckAll green. `PENDING_SHA`
+- [x] Task: bump `purerestlibVersion` 0.4.0 → 0.7.3 (+ aligned pins); fix API drift until suite green; sync `tech-stack.md` — other pins already aligned, no API drift; 140/140 (incl. Postgres Testcontainers), scalafmtCheckAll green. `e90a2e9`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: purerestlib 0.7.3' (Protocol in workflow.md) — prompting off: covered by suite
 
 ## Phase 2: Per-endpoint error outputs
