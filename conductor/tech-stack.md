@@ -36,7 +36,7 @@
   their mirror. CI restores gluon's `registry/` git export into the throwaway
   Apicurio first, so the check compares against the real baseline;
   `scripts/verify-schema-registry-check.sh` does the same locally.
-- AsyncAPI 3.0 (gluon TD-19, purekafka 0.6.0 / sbt-purekafka-docs 0.6.0-dev):
+- AsyncAPI 3.0 (gluon TD-19/19.6, purekafka 0.6.1 / sbt-purekafka-docs 0.6.1-dev):
   empty spec, since this service has no Kafka events.
 
 ## Persistence
