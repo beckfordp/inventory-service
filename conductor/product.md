@@ -48,14 +48,13 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
 ## Sequencing (gluon/PLAN.md)
 - **Phase 1** (parallel with order-service, no dependency between them) —
   US-4.1
-- **Phase 3** (parallel with order-service once each side is independently
-  testable) — US-5.1, publish side tested against an embedded/test Kafka,
-  not that order-service reacts to it
+- **Phase 3** — US-5.1 was retired in TD-7.5; no publish side remains
 
 ## Events
 - Publishes: none — the two stock events were retired in TD-7.5
-  (2026-10-27); `AsyncApiChannels` stays wired with an empty list
-- Consumes: none
+  (2026-10-27); TD-22 removed the outbox table/connector/topic too
+- Consumes: `order-events: OrderCancelled` (US-9.4) — releases the order's
+  reservations, idempotently
 
 ## Out of scope for this service
 - Order/customer data (order-service's job; inventory-service never reads

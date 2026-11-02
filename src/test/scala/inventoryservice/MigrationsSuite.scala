@@ -58,7 +58,7 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
     }
   }
 
-  test("running migrations creates the outbox_events table") {
+  test("running migrations drops the retired outbox_events table") {
     withContainers { postgres =>
       val config = PostgresConfig(
         host = postgres.host,
@@ -77,29 +77,9 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
         try {
           val rs = conn
             .createStatement()
-            .executeQuery(
-              "select column_name, data_type from information_schema.columns where table_name = 'outbox_events' order by ordinal_position"
-            )
-          val columns = Iterator
-            .unfold(())(_ =>
-              if (rs.next())
-                Some(
-                  ((rs.getString("column_name"), rs.getString("data_type")), ())
-                )
-              else None
-            )
-            .toList
-          assertEquals(
-            columns,
-            List(
-              ("id", "uuid"),
-              ("aggregate_id", "text"),
-              ("payload", "jsonb"),
-              ("trace_parent", "text"),
-              ("correlation_id", "text"),
-              ("created_at", "timestamp with time zone")
-            )
-          )
+            .executeQuery("select to_regclass('public.outbox_events')")
+          rs.next()
+          assertEquals(rs.getString(1), null)
         } finally conn.close()
       }
     }

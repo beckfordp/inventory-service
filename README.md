@@ -56,17 +56,18 @@ Swagger UI (generated from the same tapir endpoint definitions as the real route
 
 ## Kafka / AsyncAPI
 
-inventory-service has no Kafka events. TD-7.5 (2026-10-27) retired the old
-`StockReserved`/`StockReservationFailed` outbox events along with the per-item
-`POST /inventorys/reservations` endpoint; reservation is now only the
+inventory-service publishes no Kafka events. TD-7.5 (2026-10-27) retired the
+old `StockReserved`/`StockReservationFailed` outbox events along with the
+per-item `POST /inventorys/reservations` endpoint; TD-22 (2026-11-02) removed
+the now-inert outbox table/connector/topic entirely. Reservation is only the
 synchronous, all-or-nothing `POST /inventorys/order-reservations`.
 
-`AsyncApiChannels` stays wired with an empty channel list, so the raw spec
-route still serves at http://localhost:8080/docs/asyncapi.json while the
-service runs. Build-time spec/HTML generation is deliberately disabled while
-there are no channels (the AsyncAPI validator rejects an empty document — see
-`build.sbt`'s `asyncApiGenerate` override), so `/docs/asyncapi/` is not
-produced. `sbt schemaRegistryCheck` remains a successful no-op.
+It **consumes** `order-events: OrderCancelled` to release the order's
+reservations (US-9.4).
+
+`AsyncApiChannels` registers that subscription, so the raw spec route serves
+at http://localhost:8080/docs/asyncapi.json while the service runs.
+`sbt schemaRegistryCheck` dry-runs the consumer mirror.
 
 ## Development guidelines
 

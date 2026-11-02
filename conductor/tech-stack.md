@@ -18,11 +18,9 @@
 - tapir 1.11.25 — route definitions and generated Swagger/OpenAPI docs
   (`purerest.docs.Docs`), served at `/docs`, kept in sync by construction
 - purekafka.docs (`AsyncApiChannel`/`Docs`) — AsyncAPI documentation wiring
-  for this service's Kafka event contracts (`AsyncApiChannels`), served at
-  `/docs/asyncapi.json`. Since TD-7.5 retired the only two events, the
-  channel list is empty and build-time spec/HTML generation is disabled via
-  a `build.sbt` override (the AsyncAPI validator rejects a document with no
-  channels); the raw route still serves.
+  for this service's Kafka contracts (`AsyncApiChannels`), served at
+  `/docs/asyncapi.json`. It now documents the `OrderCancelled` subscription
+  added by US-9.4; inventory still publishes nothing.
 - `schemaRegistryCheck` (sbt-purekafka-docs, Rework 5 step 3/ADR 0003) —
   reuses the same `AsyncApiChannels` registrations to check/register each
   event's JSON Schema against Apicurio Registry, run explicitly (not
@@ -56,10 +54,9 @@
   Maven Central) — not yet adopted.
 
 ## Messaging
-- None — TD-7.5 (2026-10-27) removed the last Kafka client (fs2-kafka) along
-  with the stock events. Only `purekafka.docs` remains (AsyncAPI
-  documentation, empty channel list). Reintroduce fs2-kafka if an inventory
-  event is ever published again.
+- Consumes `order-events: OrderCancelled` (US-9.4) with fs2-kafka + purekafka
+  DLQ/supervision. Publishes nothing: TD-7.5 retired the stock events and
+  TD-22 removed the inert outbox/connector/topic.
 
 ## Testing
 - munit 1.3.6 + munit-cats-effect 2.2.1
