@@ -33,6 +33,12 @@ object Main extends IOApp.Simple {
       )("inventory-service starting")
     )
     store <- InventoryStore.postgres[IO](config.postgres, telemetry.meter)
+    _ <- KafkaConsumers.resource[IO](
+      config.kafka,
+      store,
+      telemetry.logger,
+      telemetry.meter
+    )
     routes = AppRoutes.all[IO](
       store,
       telemetry,

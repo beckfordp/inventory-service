@@ -12,6 +12,7 @@ val skunkVersion = "1.0.0"
 val flywayVersion = "11.8.2"
 val postgresqlJdbcVersion = "42.7.13"
 val pureconfigVersion = "0.17.10"
+val fs2KafkaVersion = "3.6.0"
 val testcontainersScalaVersion = "0.43.6"
 // purekafka: Kafka resilience/observability combinators + AsyncAPI docs
 // support (ADR 0010). Pinned to match order-service's own version (0.3.0
@@ -56,19 +57,9 @@ lazy val root = project
     asyncApiChannelsClass := "inventoryservice.AsyncApiChannels",
     asyncApiTitle := "Inventory Service",
     asyncApiVersion := "1.0",
-    // TD-7.5 retired inventory-service's only Kafka events, leaving
-    // AsyncApiChannels empty. AsyncAPI 2.6 validation rejected a document
-    // with no channels; 3.0 (purekafka 0.6.0, gluon TD-19) accepts it, but
-    // there is still nothing to render, so keep build-time generation off:
-    // create the output dir empty, which also leaves Universal/mappings
-    // with nothing to bake into the image. The live /docs/asyncapi.json
-    // route still serves the (empty) channel list. Remove this override if
-    // the service ever publishes an event again.
-    asyncApiGenerate := {
-      val dir = target.value / "asyncapi-docs"
-      IO.createDirectory(dir)
-      dir
-    },
+    // US-9.4 adds inventory-service's first channel (OrderCancelled,
+    // Subscribe), so the empty-docs override TD-7.5 needed is gone: the
+    // plugin now renders this subscription into the static docs.
     // Drives schemaRegistryCheck (Rework 5 step 3, ADR 0003) - reuses the
     // same AsyncApiChannels registrations above. Env-var override (not a
     // hardcoded default) because local dev and CI point at two different,
@@ -124,9 +115,12 @@ lazy val root = project
       "com.softwaremill.sttp.tapir" %% "tapir-http4s-server" % tapirVersion,
       // skunk: non-blocking, pure-FP Postgres access — this service's persistence layer.
       "org.tpolecat" %% "skunk-core" % skunkVersion,
-      // purekafka: AsyncAPI documentation support (ADR 0010) — the channel
-      // list is empty since TD-7.5, kept for future inventory events.
+      // purekafka: AsyncAPI documentation support (ADR 0010) and the
+      // DLQ/supervisor combinators used by the OrderCancelled consumer.
       "io.github.beckfordp" %% "purekafka" % purekafkaVersion,
+      // fs2-kafka: pure-FP, FS2-native consumer (US-9.4) — inventory's first
+      // Kafka consumer, subscribed to order-events.
+      "com.github.fd4s" %% "fs2-kafka" % fs2KafkaVersion,
       // flyway: JDBC-based schema migration tool, run on startup to create/update the
       // inventory table. Independent of Skunk (which handles all runtime queries).
       "org.flywaydb" % "flyway-core" % flywayVersion,

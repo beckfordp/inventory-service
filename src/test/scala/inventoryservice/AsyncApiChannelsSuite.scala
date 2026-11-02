@@ -1,13 +1,19 @@
 package inventoryservice
 
 import munit.FunSuite
+import purekafka.docs.ChannelDirection
 
 class AsyncApiChannelsSuite extends FunSuite {
 
-  test(
-    "AsyncApiChannels.channels is empty after retiring the stock events (TD-7.5)"
-  ) {
-    assertEquals(AsyncApiChannels.channels, Nil)
+  test("AsyncApiChannels registers the OrderCancelled subscription (US-9.4)") {
+    assertEquals(
+      AsyncApiChannels.channels.map(c => c.topic -> c.eventType).toSet,
+      Set("order-events" -> "OrderCancelled")
+    )
+    assertEquals(
+      AsyncApiChannels.channels.map(_.direction),
+      List(ChannelDirection.Subscribe: ChannelDirection)
+    )
   }
 
   test(
