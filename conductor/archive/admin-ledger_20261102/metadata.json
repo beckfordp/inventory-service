@@ -1,0 +1,8 @@
+{
+  "track_id": "admin-ledger_20261102",
+  "type": "feature",
+  "status": "completed",
+  "created_at": "2026-11-02T00:00:00Z",
+  "updated_at": "2026-11-02T00:00:00Z",
+  "description": "ADM-1: read endpoint for the reservation ledger"
+}

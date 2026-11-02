@@ -25,6 +25,10 @@ class HealthRoutesSuite extends CatsEffectSuite {
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())
+      def listReservations(
+          orderId: Option[java.util.UUID],
+          status: Option[String]
+      ): IO[List[ReservationLedgerEntry]] = IO.pure(Nil)
       def ping: IO[Boolean] = IO.pure(true)
     }
 
@@ -45,6 +49,10 @@ class HealthRoutesSuite extends CatsEffectSuite {
         IO.raiseError(new NotImplementedError())
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(new NotImplementedError())
+      def listReservations(
+          orderId: Option[java.util.UUID],
+          status: Option[String]
+      ): IO[List[ReservationLedgerEntry]] = IO.pure(Nil)
       def ping: IO[Boolean] = IO.pure(false)
     }
 

@@ -24,6 +24,18 @@ final case class ReserveOrder(
 
 final case class OrderReservation(orderId: UUID, items: List[ReservationLine])
 
+/** One persisted ledger row, for the admin read endpoint (TD-7.1/ADM-1). */
+final case class ReservationLedgerEntry(
+    orderId: UUID,
+    orderItemId: UUID,
+    lineNo: Int,
+    sku: String,
+    quantity: Int,
+    status: String,
+    reservedAt: java.time.Instant,
+    releasedAt: Option[java.time.Instant]
+)
+
 /** Why a line couldn't be reserved; `wire` is the contract's snake_case value.
   */
 enum FailureReason(val wire: String) {

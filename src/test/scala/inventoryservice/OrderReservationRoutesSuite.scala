@@ -8,7 +8,7 @@ import io.circe.syntax._
 import munit.CatsEffectSuite
 import org.http4s.circe.CirceEntityCodec._
 import org.http4s.implicits._
-import org.http4s.{HttpRoutes, Method, Request, Status}
+import org.http4s.{HttpRoutes, Method, Request, Status, Uri}
 import org.typelevel.log4cats.noop.NoOpLogger
 
 import java.util.UUID
@@ -211,6 +211,60 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
         json,
         Json.obj("error" -> "Order reservation already released".asJson)
       )
+    }
+  }
+
+  test(
+    "GET /inventorys/order-reservations returns the ledger filtered by order"
+  ) {
+    for {
+      routes <- setup("sku-a" -> 5)
+      _ <- reserve(routes, body(orderId, (itemA, "sku-a", 1)))
+      response <- routes.orNotFound.run(
+        Request[IO](
+          Method.GET,
+          Uri.unsafeFromString(
+            s"/inventorys/order-reservations?orderId=$orderId"
+          )
+        )
+      )
+      entries <- response.as[List[ReservationLedgerEntryResponse]]
+      releasedResponse <- routes.orNotFound.run(
+        Request[IO](
+          Method.GET,
+          Uri.unsafeFromString(
+            s"/inventorys/order-reservations?orderId=$orderId&status=released"
+          )
+        )
+      )
+      released <- releasedResponse.as[List[ReservationLedgerEntryResponse]]
+    } yield {
+      assertEquals(response.status, Status.Ok)
+      assertEquals(entries.map(_.status), List("active"))
+      assertEquals(entries.map(_.lineNo), List(0))
+      assertEquals(entries.map(_.quantity), List(1))
+      assertEquals(released, Nil)
+    }
+  }
+
+  test("GET /inventorys/order-reservations rejects invalid filters") {
+    for {
+      routes <- setup("sku-a" -> 5)
+      badOrder <- routes.orNotFound.run(
+        Request[IO](
+          Method.GET,
+          uri"/inventorys/order-reservations?orderId=not-a-uuid"
+        )
+      )
+      badStatus <- routes.orNotFound.run(
+        Request[IO](
+          Method.GET,
+          uri"/inventorys/order-reservations?status=gone"
+        )
+      )
+    } yield {
+      assertEquals(badOrder.status, Status.BadRequest)
+      assertEquals(badStatus.status, Status.BadRequest)
     }
   }
 

@@ -37,6 +37,10 @@ class InventoryRoutesSuite extends CatsEffectSuite {
         IO.raiseError(error)
       def releaseOrder(orderId: java.util.UUID): IO[Unit] =
         IO.raiseError(error)
+      def listReservations(
+          orderId: Option[java.util.UUID],
+          status: Option[String]
+      ): IO[List[ReservationLedgerEntry]] = IO.pure(Nil)
       def ping: IO[Boolean] = IO.raiseError(error)
     }
 

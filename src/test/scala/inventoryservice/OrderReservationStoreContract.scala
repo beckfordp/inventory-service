@@ -187,4 +187,27 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
   withStore("releaseOrder for an unknown orderId is a no-op") { store =>
     store.releaseOrder(UUID.randomUUID())
   }
+
+  withStore(
+    "listReservations returns active then released ledger rows with filters"
+  ) { store =>
+    val a = sku()
+    val cmd = command(line(a, 2))
+    for {
+      _ <- store.seed(a, 5)
+      _ <- store.reserveOrder(cmd)
+      active <- store.listReservations(Some(cmd.orderId), Some("active"))
+      other <- store.listReservations(Some(UUID.randomUUID()), None)
+      _ <- store.releaseOrder(cmd.orderId)
+      released <- store.listReservations(Some(cmd.orderId), Some("released"))
+    } yield {
+      assertEquals(active.map(_.status), List("active"))
+      assertEquals(active.map(_.quantity), List(2))
+      assertEquals(active.map(_.lineNo), List(0))
+      assertEquals(active.headOption.flatMap(_.releasedAt), None)
+      assertEquals(other, Nil)
+      assertEquals(released.map(_.status), List("released"))
+      assert(released.headOption.flatMap(_.releasedAt).isDefined)
+    }
+  }
 }

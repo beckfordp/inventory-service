@@ -15,6 +15,8 @@ import sttp.tapir.generic.auto._
 import sttp.tapir.json.circe._
 import sttp.tapir.server.ServerEndpoint
 
+import java.util.UUID
+
 @description("One line to reserve.")
 final case class ReserveOrderItemRequest(
     @description("order-service line id (UUID).")
@@ -101,6 +103,57 @@ final case class ReservationFailureResponse(
 object ReservationFailureResponse {
   implicit val codec: Codec[ReservationFailureResponse] = deriveCodec
 }
+
+@description("One persisted reservation-ledger row.")
+final case class ReservationLedgerEntryResponse(
+    @description("Order id (UUID).")
+    @encodedExample("5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f")
+    orderId: String,
+    @description("order-service line id (UUID).")
+    @encodedExample("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")
+    orderItemId: String,
+    @description("Request position within the order.")
+    @encodedExample(1)
+    lineNo: Int,
+    @description("SKU held.")
+    @encodedExample("watch-rolex-submariner")
+    sku: String,
+    @description("Units held.")
+    @encodedExample(2)
+    quantity: Int,
+    @description("`active` or `released`.")
+    @encodedExample("active")
+    status: String,
+    @description("When the line was reserved (ISO-8601 instant).")
+    @encodedExample("2026-11-02T10:00:00Z")
+    reservedAt: java.time.Instant,
+    @description("When the line was released, if it was (ISO-8601 instant).")
+    @encodedExample("2026-11-02T10:05:00Z")
+    releasedAt: Option[java.time.Instant]
+)
+
+object ReservationLedgerEntryResponse {
+  implicit val codec: Codec[ReservationLedgerEntryResponse] = deriveCodec
+
+  def apply(entry: ReservationLedgerEntry): ReservationLedgerEntryResponse =
+    ReservationLedgerEntryResponse(
+      entry.orderId.toString,
+      entry.orderItemId.toString,
+      entry.lineNo,
+      entry.sku,
+      entry.quantity,
+      entry.status,
+      entry.reservedAt,
+      entry.releasedAt
+    )
+}
+
+@description("Invalid ledger filter.")
+final case class InvalidLedgerFilter(
+    @description("Why the filter is invalid.")
+    @encodedExample("status must be active or released")
+    message: String
+)
 
 @description("Error body for lines that couldn't be reserved.")
 final case class ReservationRejectedResponse(
@@ -280,6 +333,94 @@ object OrderReservationRoutes {
       } yield result
     }
 
+  private val ledgerEntryErrorOutput
+      : EndpointOutput.OneOf[InvalidLedgerFilter, InvalidLedgerFilter] =
+    oneOf(
+      oneOfVariant(
+        statusCode(StatusCode.BadRequest)
+          .and(
+            jsonBody[ErrorResponse]
+              .description("Invalid filter value.")
+              .example(ErrorResponse("status must be active or released"))
+          )
+          .map(e => InvalidLedgerFilter(e.error))(e => ErrorResponse(e.message))
+      )
+    )
+
+  private val listReservationsEndpoint: PublicEndpoint[
+    (Option[String], Option[String]),
+    InvalidLedgerFilter,
+    List[ReservationLedgerEntryResponse],
+    Any
+  ] =
+    endpoint.get
+      .in("inventorys" / "order-reservations")
+      .in(
+        query[Option[String]]("orderId")
+          .description("Only this order's ledger rows; must be a UUID.")
+          .example(Some("5c1d9e2f-8b3a-4c7d-9e0f-2a1b3c4d5e6f"))
+      )
+      .in(
+        query[Option[String]]("status")
+          .description("Only `active` or `released` rows.")
+          .example(Some("active"))
+      )
+      .out(jsonBody[List[ReservationLedgerEntryResponse]])
+      .errorOut(ledgerEntryErrorOutput)
+      .summary("List the reservation ledger")
+      .description(
+        "Admin read of every reservation line, optionally filtered by orderId (UUID) and status (`active`/`released`). Returns ledger rows in order/line order. Read-only; no event is published."
+      )
+      .tag("order-reservations")
+
+  def listReservationsServerEndpoint[F[_]: Monad](
+      store: InventoryStore[F],
+      logger: StructuredLogger[F]
+  ): ServerEndpoint[Any, F] =
+    listReservationsEndpoint.serverLogic[F] { case (rawOrderId, rawStatus) =>
+      val context = Map(
+        "order_id" -> rawOrderId.getOrElse("-"),
+        "status" -> rawStatus.getOrElse("-")
+      )
+      val parsed: Either[InvalidLedgerFilter, (Option[UUID], Option[String])] =
+        (rawOrderId match {
+          case None      => Right(None: Option[UUID])
+          case Some(raw) =>
+            Uuids
+              .parse(raw)
+              .toRight(InvalidLedgerFilter("orderId must be a UUID"))
+              .map(Some(_): Option[UUID])
+        }).flatMap { orderId =>
+          rawStatus match {
+            case None | Some("active") | Some("released") =>
+              Right((orderId, rawStatus))
+            case Some(_) =>
+              Left(InvalidLedgerFilter("status must be active or released"))
+          }
+        }
+      parsed match {
+        case Left(error) =>
+          logger
+            .warn(context + ("error" -> error.message))("Invalid ledger filter")
+            .as(Left(error))
+        case Right((orderId, status)) =>
+          logger
+            .info(
+              Map(
+                "method" -> "GET",
+                "path" -> "/inventorys/order-reservations"
+              ) ++ context
+            )(
+              "Received request"
+            ) *>
+            store
+              .listReservations(orderId, status)
+              .map(entries =>
+                Right(entries.map(ReservationLedgerEntryResponse.apply))
+              )
+      }
+    }
+
   private val releaseOrderEndpoint: PublicEndpoint[String, Unit, Unit, Any] =
     endpoint.post
       .in(
@@ -324,6 +465,7 @@ object OrderReservationRoutes {
   ): List[ServerEndpoint[Any, F]] =
     List(
       reserveOrderServerEndpoint(store, logger),
-      releaseOrderServerEndpoint(store, logger)
+      releaseOrderServerEndpoint(store, logger),
+      listReservationsServerEndpoint(store, logger)
     )
 }

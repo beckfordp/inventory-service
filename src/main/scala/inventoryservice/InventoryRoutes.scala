@@ -465,14 +465,16 @@ object InventoryRoutes {
       store: InventoryStore[F],
       logger: StructuredLogger[F]
   ): List[ServerEndpoint[Any, F]] =
-    List(
+    // Reservation routes first: GET /inventorys/order-reservations would
+    // otherwise be captured by GET /inventorys/{id} as an invalid id.
+    OrderReservationRoutes.serverEndpoints(store, logger) ++ List(
       createInventoryServerEndpoint(store, logger),
       getInventoryServerEndpoint(store, logger),
       updateInventoryServerEndpoint(store, logger),
       replaceInventoryServerEndpoint(store, logger),
       deleteInventoryServerEndpoint(store, logger),
       listInventoryServerEndpoint(store, logger)
-    ) ++ OrderReservationRoutes.serverEndpoints(store, logger)
+    )
 
   def routes[F[_]: Async](
       store: InventoryStore[F],

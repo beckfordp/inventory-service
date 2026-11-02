@@ -51,6 +51,15 @@ trait InventoryStore[F[_]] {
     * no-op, so compensation is safe to retry.
     */
   def releaseOrder(orderId: UUID): F[Unit]
+
+  /** Admin read of the ledger, optionally filtered by order and status
+    * (`active`/`released`).
+    */
+  def listReservations(
+      orderId: Option[UUID],
+      status: Option[String]
+  ): F[List[ReservationLedgerEntry]]
+
   def ping: F[Boolean]
 }
 
@@ -58,7 +67,13 @@ object InventoryStore {
 
   private val defaultQuantityReserved = 0
 
-  private final case class LedgerLine(line: ReservationLine, active: Boolean)
+  private final case class LedgerLine(
+      line: ReservationLine,
+      lineNo: Int,
+      active: Boolean,
+      reservedAt: java.time.Instant,
+      releasedAt: Option[java.time.Instant]
+  )
 
   /** One `Ref` over stock and ledger together, so a bulk reserve or release
     * updates both atomically, as the Postgres transaction does.
@@ -183,9 +198,16 @@ object InventoryStore {
                       (
                         InMemoryState(
                           shiftStock(current.inventory, lines, 1, now),
-                          current.ledger + (command.orderId -> lines.map(
-                            LedgerLine(_, active = true)
-                          ))
+                          current.ledger + (command.orderId -> lines.zipWithIndex
+                            .map { case (line, index) =>
+                              LedgerLine(
+                                line,
+                                index,
+                                active = true,
+                                now,
+                                None
+                              )
+                            })
                         ),
                         Right(OrderReservation(command.orderId, lines))
                       )
@@ -203,12 +225,39 @@ object InventoryStore {
                   val active = lines.filter(_.active).map(_.line)
                   InMemoryState(
                     shiftStock(current.inventory, active, -1, now),
-                    current.ledger + (orderId -> lines.map(
-                      _.copy(active = false)
-                    ))
+                    current.ledger + (orderId -> lines.map { line =>
+                      if (line.active)
+                        line.copy(active = false, releasedAt = Some(now))
+                      else line
+                    })
                   )
               }
             }
+          }
+
+        def listReservations(
+            orderId: Option[UUID],
+            status: Option[String]
+        ): F[List[ReservationLedgerEntry]] =
+          state.get.map { current =>
+            current.ledger.toList
+              .filter { case (id, _) => orderId.forall(_ == id) }
+              .flatMap { case (id, lines) =>
+                lines.map { line =>
+                  ReservationLedgerEntry(
+                    id,
+                    line.line.orderItemId,
+                    line.lineNo,
+                    line.line.sku,
+                    line.line.quantity,
+                    if (line.active) "active" else "released",
+                    line.reservedAt,
+                    line.releasedAt
+                  )
+                }
+              }
+              .filter(entry => status.forall(_ == entry.status))
+              .sortBy(entry => (entry.orderId.toString, entry.lineNo))
           }
 
         def ping: F[Boolean] = Concurrent[F].pure(true)
@@ -281,6 +330,31 @@ object InventoryStore {
     sql"""
       SELECT 1 FROM (SELECT pg_advisory_xact_lock(hashtextextended($text, 0))) AS l
     """.query(int4)
+
+  private type LedgerEntryRow = (
+      UUID,
+      UUID,
+      Int,
+      String,
+      Int,
+      String,
+      OffsetDateTime,
+      Option[OffsetDateTime]
+  )
+
+  private val ledgerEntryRow: skunk.Decoder[LedgerEntryRow] =
+    uuid *: uuid *: int4 *: text *: int4 *: text *: timestamptz *: timestamptz.opt
+
+  private val selectReservationEntries
+      : skunk.Query[(Option[UUID], Option[String]), LedgerEntryRow] =
+    sql"""
+      SELECT order_id, order_item_id, line_no, sku, quantity, status,
+             created_at, released_at
+      FROM "order_reservations"
+      WHERE order_id = COALESCE(${uuid.opt}, order_id)
+        AND status = COALESCE(${text.opt}, status)
+      ORDER BY order_id, line_no
+    """.query(ledgerEntryRow)
 
   private val selectLedger: skunk.Query[UUID, (UUID, String, Int, Boolean)] =
     sql"""
@@ -637,6 +711,43 @@ object InventoryStore {
                     }
                   }
                 }
+
+              def listReservations(
+                  orderId: Option[UUID],
+                  status: Option[String]
+              ): F[List[ReservationLedgerEntry]] =
+                timed("select_reservations") {
+                  pool.use { session =>
+                    session
+                      .prepare(selectReservationEntries)
+                      .flatMap(
+                        _.stream((orderId, status), 64).compile.toList
+                      )
+                  }
+                }.map(
+                  _.map {
+                    case (
+                          id,
+                          itemId,
+                          lineNo,
+                          sku,
+                          quantity,
+                          lineStatus,
+                          reservedAt,
+                          releasedAt
+                        ) =>
+                      ReservationLedgerEntry(
+                        id,
+                        itemId,
+                        lineNo,
+                        sku,
+                        quantity,
+                        lineStatus,
+                        reservedAt.toInstant,
+                        releasedAt.map(_.toInstant)
+                      )
+                  }
+                )
 
               def ping: F[Boolean] =
                 timed("ping") {
