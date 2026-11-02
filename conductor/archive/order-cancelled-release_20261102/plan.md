@@ -17,3 +17,10 @@
 
 - [x] Task: Add `order-events-OrderCancelled` to CONSUMES; `sbt schemaRegistryCheck`
 - [x] Task: Conductor - User Manual Verification 'Schema check' (Protocol in workflow.md)
+
+## Review (2026-11-02)
+
+- `sbt scalafmtCheck test` green (147 tests); `sbt schemaRegistryCheck` green
+  with the new OrderCancelled subscription.
+- Live path covered by `verify-auth-expiry.sh`: stock released on expiry.
+- No blocking findings.
