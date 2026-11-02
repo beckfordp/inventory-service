@@ -1,0 +1,8 @@
+{
+  "track_id": "j7-shipped-guard_20261102",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-11-02T00:00:00Z",
+  "updated_at": "2026-11-02T00:00:00Z",
+  "description": "Checkout Journey 7: shipped reservation state, dispatch consumer and reconciliation (US-21.4)"
+}
