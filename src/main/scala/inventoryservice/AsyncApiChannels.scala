@@ -18,6 +18,11 @@ object AsyncApiChannels extends AsyncApiChannelsProvider {
       topic = OrderCancelledConsumer.topic,
       eventType = "OrderCancelled",
       direction = ChannelDirection.Subscribe
+    ),
+    AsyncApiChannel[DispatchConfirmedEvent](
+      topic = FulfilmentEventConsumer.topic,
+      eventType = "DispatchConfirmed",
+      direction = ChannelDirection.Subscribe
     )
   )
 }

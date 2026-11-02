@@ -115,6 +115,31 @@ class OrderCancelledHandlerSuite extends CatsEffectSuite {
     } yield assertEquals(after, (10, 0))
   }
 
+  test(
+    "OrderCancelled after dispatch flags reconciliation and does not return stock"
+  ) {
+    val orderId = UUID.randomUUID()
+    for {
+      store <- InventoryStore.inMemory[IO]
+      _ <- store.seed("sku-1", 10)
+      _ <- reserved(store, orderId)
+      _ <- store.markShipped(orderId)
+      dlq <- Ref.of[IO, List[(String, String, Option[String])]](Nil)
+      dl <- deadLetter(dlq)
+      _ <- OrderCancelledConsumer.handle(store, NoOpLogger[IO], dl)(
+        orderId.toString,
+        Some(envelope(orderId.toString))
+      )
+      after <- levels(store)
+      reason <- store.reconciliationReason(orderId)
+      routed <- dlq.get
+    } yield {
+      assertEquals(after, (8, 0))
+      assertEquals(reason, Some("cancel_after_dispatch"))
+      assertEquals(routed, Nil)
+    }
+  }
+
   test("a malformed OrderCancelled payload is dead-lettered") {
     for {
       store <- InventoryStore.inMemory[IO]

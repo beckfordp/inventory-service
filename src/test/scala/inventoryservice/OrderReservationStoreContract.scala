@@ -185,7 +185,7 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
   }
 
   withStore("releaseOrder for an unknown orderId is a no-op") { store =>
-    store.releaseOrder(UUID.randomUUID())
+    store.releaseOrder(UUID.randomUUID()).void
   }
 
   withStore(
@@ -209,5 +209,81 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
       assertEquals(released.map(_.status), List("released"))
       assert(released.headOption.flatMap(_.releasedAt).isDefined)
     }
+  }
+
+  withStore(
+    "markShipped consumes the reservation without returning available stock"
+  ) { store =>
+    val a = sku()
+    val cmd = command(line(a, 2))
+    for {
+      _ <- store.seed(a, 5)
+      _ <- store.reserveOrder(cmd)
+      shipped <- store.markShipped(cmd.orderId)
+      levelsAfter <- levels(store, a)
+      rows <- store.listReservations(Some(cmd.orderId), Some("shipped"))
+      duplicate <- store.markShipped(cmd.orderId)
+      levelsAfterDuplicate <- levels(store, a)
+    } yield {
+      assertEquals(shipped.shipped.size, 1)
+      assertEquals(shipped.alreadyShipped, Nil)
+      assertEquals(shipped.released, Nil)
+      assertEquals(levelsAfter, List((3, 0)))
+      assertEquals(rows.map(_.status), List("shipped"))
+      assertEquals(duplicate.shipped, Nil)
+      assertEquals(duplicate.alreadyShipped.size, 1)
+      assertEquals(levelsAfterDuplicate, List((3, 0)))
+    }
+  }
+
+  withStore("releaseOrder after markShipped is a no-op and reports shipped") {
+    store =>
+      val a = sku()
+      val cmd = command(line(a, 2))
+      for {
+        _ <- store.seed(a, 5)
+        _ <- store.reserveOrder(cmd)
+        _ <- store.markShipped(cmd.orderId)
+        outcome <- store.releaseOrder(cmd.orderId)
+        levelsAfter <- levels(store, a)
+      } yield {
+        assertEquals(outcome.released, Nil)
+        assertEquals(outcome.shipped.size, 1)
+        assertEquals(levelsAfter, List((3, 0)))
+      }
+  }
+
+  withStore("reserveOrder after markShipped is rejected as released") { store =>
+    val a = sku()
+    val cmd = command(line(a, 2))
+    for {
+      _ <- store.seed(a, 5)
+      _ <- store.reserveOrder(cmd)
+      _ <- store.markShipped(cmd.orderId)
+      replay <- store.reserveOrder(cmd)
+      levelsAfter <- levels(store, a)
+    } yield {
+      assertEquals(replay, Left(ReservationReleased(cmd.orderId)))
+      assertEquals(levelsAfter, List((3, 0)))
+    }
+  }
+
+  withStore("reconciliation flags are first-wins and require a ledger") {
+    store =>
+      val a = sku()
+      val cmd = command(line(a, 1))
+      for {
+        _ <- store.seed(a, 2)
+        _ <- store.reserveOrder(cmd)
+        first <- store.flagReconciliation(cmd.orderId, "first")
+        second <- store.flagReconciliation(cmd.orderId, "second")
+        reason <- store.reconciliationReason(cmd.orderId)
+        unknown <- store.flagReconciliation(UUID.randomUUID(), "x")
+      } yield {
+        assert(first)
+        assert(!second)
+        assertEquals(reason, Some("first"))
+        assert(!unknown)
+      }
   }
 }

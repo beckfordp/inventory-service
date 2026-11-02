@@ -36,6 +36,23 @@ final case class ReservationLedgerEntry(
     releasedAt: Option[java.time.Instant]
 )
 
+/** What a release did: the lines it released now, and any already shipped
+  * (US-21.4). A shipped line is never returned to stock.
+  */
+final case class ReleaseOutcome(
+    released: List[ReservationLine],
+    shipped: List[ReservationLine]
+)
+
+/** What a dispatch did: lines shipped now, lines already shipped (duplicate),
+  * and lines already released (the loser of a cancel-vs-dispatch race).
+  */
+final case class ShipOutcome(
+    shipped: List[ReservationLine],
+    alreadyShipped: List[ReservationLine],
+    released: List[ReservationLine]
+)
+
 /** Why a line couldn't be reserved; `wire` is the contract's snake_case value.
   */
 enum FailureReason(val wire: String) {

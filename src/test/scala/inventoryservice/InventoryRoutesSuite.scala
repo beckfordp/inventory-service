@@ -35,8 +35,18 @@ class InventoryRoutesSuite extends CatsEffectSuite {
           command: ReserveOrder
       ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(error)
-      def releaseOrder(orderId: java.util.UUID): IO[Unit] =
+      def releaseOrder(
+          orderId: java.util.UUID
+      ): IO[ReleaseOutcome] = IO.raiseError(error)
+      def markShipped(orderId: java.util.UUID): IO[ShipOutcome] =
         IO.raiseError(error)
+      def flagReconciliation(
+          orderId: java.util.UUID,
+          reason: String
+      ): IO[Boolean] = IO.raiseError(error)
+      def reconciliationReason(
+          orderId: java.util.UUID
+      ): IO[Option[String]] = IO.pure(None)
       def listReservations(
           orderId: Option[java.util.UUID],
           status: Option[String]

@@ -47,13 +47,25 @@ trait InventoryStore[F[_]] {
   ): F[Either[ReservationConflict, OrderReservation]]
 
   /** Returns every active ledger line's quantity to `quantityAvailable` and
-    * marks it released (TD-7.2). Unknown or already-released `orderId` is a
-    * no-op, so compensation is safe to retry.
+    * marks it released (TD-7.2). Shipped lines are untouched. Unknown or
+    * already-released/shipped `orderId` is a no-op, so compensation is safe to
+    * retry; the outcome reports any shipped lines seen (US-21.4).
     */
-  def releaseOrder(orderId: UUID): F[Unit]
+  def releaseOrder(orderId: UUID): F[ReleaseOutcome]
+
+  /** Marks active ledger lines `shipped` (US-21.4): `quantity_reserved`
+    * decreases, `quantity_available` is unchanged. Reports lines already
+    * shipped and lines already released.
+    */
+  def markShipped(orderId: UUID): F[ShipOutcome]
+
+  /** Records a manual-reconciliation flag (US-21.4), first-wins. */
+  def flagReconciliation(orderId: UUID, reason: String): F[Boolean]
+
+  def reconciliationReason(orderId: UUID): F[Option[String]]
 
   /** Admin read of the ledger, optionally filtered by order and status
-    * (`active`/`released`).
+    * (`active`/`released`/`shipped`).
     */
   def listReservations(
       orderId: Option[UUID],
@@ -71,8 +83,10 @@ object InventoryStore {
       line: ReservationLine,
       lineNo: Int,
       active: Boolean,
+      shipped: Boolean,
       reservedAt: java.time.Instant,
-      releasedAt: Option[java.time.Instant]
+      releasedAt: Option[java.time.Instant],
+      shippedAt: Option[java.time.Instant]
   )
 
   /** One `Ref` over stock and ledger together, so a bulk reserve or release
@@ -106,8 +120,32 @@ object InventoryStore {
     }
   }
 
+  /** Shipping consumes the reservation without returning stock: available is
+    * unchanged, reserved decreases.
+    */
+  private def releaseReserved(
+      entities: Map[InventoryId, Inventory],
+      lines: List[ReservationLine],
+      now: java.time.Instant
+  ): Map[InventoryId, Inventory] = {
+    val bySku = lines.groupMapReduce(_.sku)(_.quantity)(_ + _)
+    entities.map { case (id, inv) =>
+      bySku.get(inv.sku) match {
+        case None      => id -> inv
+        case Some(qty) =>
+          id -> inv.copy(
+            quantityReserved = inv.quantityReserved - qty,
+            updatedAt = now
+          )
+      }
+    }
+  }
+
   def inMemory[F[_]: Concurrent: Clock: UUIDGen]: F[InventoryStore[F]] =
-    Ref.of[F, InMemoryState](InMemoryState(Map.empty, Map.empty)).map { state =>
+    for {
+      state <- Ref.of[F, InMemoryState](InMemoryState(Map.empty, Map.empty))
+      reconciliation <- Ref.of[F, Map[UUID, String]](Map.empty)
+    } yield {
       // Existing CRUD methods keep operating on just the stock map.
       val ref = Ref.lens[F, InMemoryState, Map[InventoryId, Inventory]](state)(
         _.inventory,
@@ -204,7 +242,9 @@ object InventoryStore {
                                 line,
                                 index,
                                 active = true,
+                                shipped = false,
                                 now,
+                                None,
                                 None
                               )
                             })
@@ -216,24 +256,68 @@ object InventoryStore {
             }
           }
 
-        def releaseOrder(orderId: UUID): F[Unit] =
+        def releaseOrder(orderId: UUID): F[ReleaseOutcome] =
           Clock[F].realTimeInstant.flatMap { now =>
-            state.update { current =>
+            state.modify { current =>
               current.ledger.get(orderId) match {
-                case None        => current
+                case None        => current -> ReleaseOutcome(Nil, Nil)
                 case Some(lines) =>
                   val active = lines.filter(_.active).map(_.line)
+                  val shipped = lines.filter(_.shipped).map(_.line)
+                  val updated = lines.map { line =>
+                    if (line.active)
+                      line.copy(active = false, releasedAt = Some(now))
+                    else line
+                  }
                   InMemoryState(
                     shiftStock(current.inventory, active, -1, now),
-                    current.ledger + (orderId -> lines.map { line =>
-                      if (line.active)
-                        line.copy(active = false, releasedAt = Some(now))
-                      else line
-                    })
-                  )
+                    current.ledger + (orderId -> updated)
+                  ) -> ReleaseOutcome(active, shipped)
               }
             }
           }
+
+        def markShipped(orderId: UUID): F[ShipOutcome] =
+          Clock[F].realTimeInstant.flatMap { now =>
+            state.modify { current =>
+              current.ledger.get(orderId) match {
+                case None        => current -> ShipOutcome(Nil, Nil, Nil)
+                case Some(lines) =>
+                  val active = lines.filter(_.active).map(_.line)
+                  val alreadyShipped = lines.filter(_.shipped).map(_.line)
+                  val released =
+                    lines
+                      .filter(line => !line.active && !line.shipped)
+                      .map(_.line)
+                  val updated = lines.map { line =>
+                    if (line.active)
+                      line.copy(
+                        active = false,
+                        shipped = true,
+                        shippedAt = Some(now)
+                      )
+                    else line
+                  }
+                  InMemoryState(
+                    releaseReserved(current.inventory, active, now),
+                    current.ledger + (orderId -> updated)
+                  ) -> ShipOutcome(active, alreadyShipped, released)
+              }
+            }
+          }
+
+        def flagReconciliation(orderId: UUID, reason: String): F[Boolean] =
+          state.get.map(_.ledger.contains(orderId)).flatMap {
+            case false => Concurrent[F].pure(false)
+            case true  =>
+              reconciliation.modify { reasons =>
+                if (reasons.contains(orderId)) (reasons, false)
+                else (reasons + (orderId -> reason), true)
+              }
+          }
+
+        def reconciliationReason(orderId: UUID): F[Option[String]] =
+          reconciliation.get.map(_.get(orderId))
 
         def listReservations(
             orderId: Option[UUID],
@@ -250,7 +334,9 @@ object InventoryStore {
                     line.lineNo,
                     line.line.sku,
                     line.line.quantity,
-                    if (line.active) "active" else "released",
+                    if (line.active) "active"
+                    else if (line.shipped) "shipped"
+                    else "released",
                     line.reservedAt,
                     line.releasedAt
                   )
@@ -397,6 +483,49 @@ object InventoryStore {
       WHERE order_id = $uuid AND status = 'active'
       RETURNING sku, quantity
     """.query(text *: int4)
+
+  private val markShippedCommand: skunk.Command[UUID] =
+    sql"""
+      UPDATE "order_reservations"
+      SET status = 'shipped'
+      WHERE order_id = $uuid AND status = 'active'
+    """.command
+
+  private val selectLedgerStatuses
+      : skunk.Query[UUID, (UUID, String, Int, String)] =
+    sql"""
+      SELECT order_item_id, sku, quantity, status
+      FROM "order_reservations"
+      WHERE order_id = $uuid
+      ORDER BY line_no
+    """.query(uuid *: text *: int4 *: text)
+
+  private val releaseReservedCommand: skunk.Command[(Int, String)] =
+    sql"""
+      UPDATE "inventory"
+      SET quantity_reserved = quantity_reserved - $int4,
+          updated_at = now()
+      WHERE sku = $text
+    """.command
+
+  private val insertReconciliation: skunk.Query[(UUID, String, UUID), UUID] =
+    sql"""
+      INSERT INTO inventory_reconciliation (order_id, reason)
+      SELECT $uuid, $text
+      WHERE EXISTS (SELECT 1 FROM order_reservations WHERE order_id = $uuid)
+      ON CONFLICT (order_id) DO NOTHING
+      RETURNING order_id
+    """.query(uuid)
+
+  private val selectReconciliationReason: skunk.Query[UUID, String] =
+    sql"""
+      SELECT reason FROM inventory_reconciliation WHERE order_id = $uuid
+    """.query(text)
+
+  private def toReservationLine(
+      row: (UUID, String, Int, String)
+  ): ReservationLine =
+    ReservationLine(row._1, row._2, row._3)
 
   private val pingQuery: skunk.Query[skunk.Void, Int] = sql"SELECT 1".query(
     int4
@@ -691,7 +820,7 @@ object InventoryStore {
                   }
                 } yield result
 
-              def releaseOrder(orderId: UUID): F[Unit] =
+              def releaseOrder(orderId: UUID): F[ReleaseOutcome] =
                 timed("release_order") {
                   pool.use { session =>
                     session.transaction.use { _ =>
@@ -699,16 +828,80 @@ object InventoryStore {
                         _ <- session
                           .prepare(lockOrder)
                           .flatMap(_.unique(orderId.toString))
-                        released <- session
+                        before <- session
+                          .prepare(selectLedgerStatuses)
+                          .flatMap(_.stream(orderId, 64).compile.toList)
+                        _ <- session
                           .prepare(releaseLedger)
                           .flatMap(_.stream(orderId, 64).compile.toList)
+                        active = before.filter(_._4 == "active")
                         _ <- shiftAll(
                           session,
-                          released.groupMapReduce(_._1)(_._2)(_ + _),
+                          active
+                            .groupMapReduce(_._2)(_._3)(_ + _),
                           -1
                         )
-                      } yield ()
+                      } yield ReleaseOutcome(
+                        active.map(toReservationLine),
+                        before.filter(_._4 == "shipped").map(toReservationLine)
+                      )
                     }
+                  }
+                }
+
+              def markShipped(orderId: UUID): F[ShipOutcome] =
+                timed("mark_shipped") {
+                  pool.use { session =>
+                    session.transaction.use { _ =>
+                      for {
+                        _ <- session
+                          .prepare(lockOrder)
+                          .flatMap(_.unique(orderId.toString))
+                        before <- session
+                          .prepare(selectLedgerStatuses)
+                          .flatMap(_.stream(orderId, 64).compile.toList)
+                        active = before.filter(_._4 == "active")
+                        _ <- session
+                          .prepare(markShippedCommand)
+                          .flatMap(_.execute(orderId))
+                        _ <- session.prepare(releaseReservedCommand).flatMap {
+                          cmd =>
+                            active
+                              .groupMapReduce(_._2)(_._3)(_ + _)
+                              .toList
+                              .sortBy(_._1)
+                              .traverse_ { case (sku, qty) =>
+                                cmd.execute((qty, sku))
+                              }
+                        }
+                      } yield ShipOutcome(
+                        active.map(toReservationLine),
+                        before.filter(_._4 == "shipped").map(toReservationLine),
+                        before.filter(_._4 == "released").map(toReservationLine)
+                      )
+                    }
+                  }
+                }
+
+              def flagReconciliation(
+                  orderId: UUID,
+                  reason: String
+              ): F[Boolean] =
+                timed("flag_reconciliation") {
+                  pool.use { session =>
+                    session
+                      .prepare(insertReconciliation)
+                      .flatMap(_.option((orderId, reason, orderId)))
+                      .map(_.isDefined)
+                  }
+                }
+
+              def reconciliationReason(orderId: UUID): F[Option[String]] =
+                timed("select_reconciliation_reason") {
+                  pool.use { session =>
+                    session
+                      .prepare(selectReconciliationReason)
+                      .flatMap(_.option(orderId))
                   }
                 }
 

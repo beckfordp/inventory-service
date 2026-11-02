@@ -23,8 +23,19 @@ class HealthRoutesSuite extends CatsEffectSuite {
           command: ReserveOrder
       ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
-      def releaseOrder(orderId: java.util.UUID): IO[Unit] =
+      def releaseOrder(
+          orderId: java.util.UUID
+      ): IO[ReleaseOutcome] =
         IO.raiseError(new NotImplementedError())
+      def markShipped(orderId: java.util.UUID): IO[ShipOutcome] =
+        IO.raiseError(new NotImplementedError())
+      def flagReconciliation(
+          orderId: java.util.UUID,
+          reason: String
+      ): IO[Boolean] = IO.pure(false)
+      def reconciliationReason(
+          orderId: java.util.UUID
+      ): IO[Option[String]] = IO.pure(None)
       def listReservations(
           orderId: Option[java.util.UUID],
           status: Option[String]
@@ -47,8 +58,19 @@ class HealthRoutesSuite extends CatsEffectSuite {
           command: ReserveOrder
       ): IO[Either[ReservationConflict, OrderReservation]] =
         IO.raiseError(new NotImplementedError())
-      def releaseOrder(orderId: java.util.UUID): IO[Unit] =
+      def releaseOrder(
+          orderId: java.util.UUID
+      ): IO[ReleaseOutcome] =
         IO.raiseError(new NotImplementedError())
+      def markShipped(orderId: java.util.UUID): IO[ShipOutcome] =
+        IO.raiseError(new NotImplementedError())
+      def flagReconciliation(
+          orderId: java.util.UUID,
+          reason: String
+      ): IO[Boolean] = IO.pure(false)
+      def reconciliationReason(
+          orderId: java.util.UUID
+      ): IO[Option[String]] = IO.pure(None)
       def listReservations(
           orderId: Option[java.util.UUID],
           status: Option[String]

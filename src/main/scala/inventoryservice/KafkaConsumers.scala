@@ -26,20 +26,47 @@ object KafkaConsumers {
         .withBootstrapServers(config.bootstrapServers)
 
     for {
-      deadLetter <- Stream.resource(
+      orderDeadLetter <- Stream.resource(
         DeadLetter.resource[F, String, Option[String]](
           config.dlqRetry,
           config.dlqPublishResilience,
           dlqProducerSettings
         )(logger)(meter)
       )
-      result <- StreamSupervisor.supervise[F, Unit](config.streamSupervisor)(
-        logger
-      )(meter)(
-        Async[F].pure(
-          OrderCancelledConsumer.run[F](config, store, logger, deadLetter)
-        )
+      fulfilmentDeadLetter <- Stream.resource(
+        DeadLetter.resource[F, String, Option[String]](
+          config.dlqRetry,
+          config.dlqPublishResilience,
+          dlqProducerSettings
+        )(logger)(meter)
       )
+      result <- StreamSupervisor
+        .supervise[F, Unit](config.streamSupervisor)(
+          logger
+        )(meter)(
+          Async[F].pure(
+            OrderCancelledConsumer.run[F](
+              config,
+              store,
+              logger,
+              orderDeadLetter
+            )
+          )
+        )
+        .merge(
+          StreamSupervisor.supervise[F, Unit](config.streamSupervisor)(logger)(
+            meter
+          )(
+            Async[F].pure(
+              FulfilmentEventConsumer.run[F](
+                config,
+                store,
+                logger,
+                fulfilmentDeadLetter
+              )
+            )
+          )
+        )
     } yield result
   }
 

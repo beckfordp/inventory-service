@@ -197,7 +197,7 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
   }
 
   test(
-    "POST /inventorys/order-reservations after release returns 409 already released"
+    "POST /inventorys/order-reservations after release returns 409 already released or shipped"
   ) {
     for {
       routes <- setup("sku-a" -> 5)
@@ -209,7 +209,9 @@ class OrderReservationRoutesSuite extends CatsEffectSuite {
       assertEquals(response.status, Status.Conflict)
       assertEquals(
         json,
-        Json.obj("error" -> "Order reservation already released".asJson)
+        Json.obj(
+          "error" -> "Order reservation already released or shipped".asJson
+        )
       )
     }
   }

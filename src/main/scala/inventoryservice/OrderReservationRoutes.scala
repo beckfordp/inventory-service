@@ -151,7 +151,7 @@ object ReservationLedgerEntryResponse {
 @description("Invalid ledger filter.")
 final case class InvalidLedgerFilter(
     @description("Why the filter is invalid.")
-    @encodedExample("status must be active or released")
+    @encodedExample("status must be active, released or shipped")
     message: String
 )
 
@@ -225,7 +225,7 @@ object OrderReservationRoutes {
         DecodeResult.Error(body.error, new IllegalArgumentException(body.error))
       )(failures => DecodeResult.Value(ReservationRejected(failures)))
 
-  private val releasedMessage = "Order reservation already released"
+  private val releasedMessage = "Order reservation already released or shipped"
 
   private val reserveOrderErrorOutput: EndpointOutput[OrderReservationError] =
     oneOf[OrderReservationError](
@@ -245,7 +245,7 @@ object OrderReservationRoutes {
           .and(
             jsonBody[ErrorResponse]
               .description(
-                "The order's reservation was already released; stock is not held."
+                "The order's reservation was already released or shipped; stock is not held."
               )
               .example(ErrorResponse(releasedMessage))
           )
@@ -341,7 +341,9 @@ object OrderReservationRoutes {
           .and(
             jsonBody[ErrorResponse]
               .description("Invalid filter value.")
-              .example(ErrorResponse("status must be active or released"))
+              .example(
+                ErrorResponse("status must be active, released or shipped")
+              )
           )
           .map(e => InvalidLedgerFilter(e.error))(e => ErrorResponse(e.message))
       )
@@ -362,14 +364,14 @@ object OrderReservationRoutes {
       )
       .in(
         query[Option[String]]("status")
-          .description("Only `active` or `released` rows.")
+          .description("Only `active`, `released` or `shipped` rows.")
           .example(Some("active"))
       )
       .out(jsonBody[List[ReservationLedgerEntryResponse]])
       .errorOut(ledgerEntryErrorOutput)
       .summary("List the reservation ledger")
       .description(
-        "Admin read of every reservation line, optionally filtered by orderId (UUID) and status (`active`/`released`). Returns ledger rows in order/line order. Read-only; no event is published."
+        "Admin read of every reservation line, optionally filtered by orderId (UUID) and status (`active`/`released`/`shipped`). Returns ledger rows in order/line order. Read-only; no event is published."
       )
       .tag("order-reservations")
 
@@ -392,10 +394,14 @@ object OrderReservationRoutes {
               .map(Some(_): Option[UUID])
         }).flatMap { orderId =>
           rawStatus match {
-            case None | Some("active") | Some("released") =>
+            case None | Some("active") | Some("released") | Some("shipped") =>
               Right((orderId, rawStatus))
             case Some(_) =>
-              Left(InvalidLedgerFilter("status must be active or released"))
+              Left(
+                InvalidLedgerFilter(
+                  "status must be active, released or shipped"
+                )
+              )
           }
         }
       parsed match {

@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Verifies inventory-service's AsyncAPI surface after TD-7.5 retired its only
-# two events. With AsyncApiChannels empty:
-#   - build-time spec/HTML generation is deliberately disabled (build.sbt's
-#     asyncApiGenerate override — the AsyncAPI validator rejects a document
-#     with no channels), so no spec or HTML files are produced;
-#   - the live /docs/asyncapi.json route still serves a 200 with no retired
-#     event types in it.
+# Verifies inventory-service's AsyncAPI surface after US-21.4 added the
+# DispatchConfirmed subscription alongside OrderCancelled:
+#   - build-time spec generation produces a document containing both
+#     subscriptions;
+#   - the live /docs/asyncapi.json route serves both and no retired event
+#     types.
 #
 # Usage: ./scripts/verify-kafka-asyncapi-docs.sh
 
@@ -36,18 +35,22 @@ wait_ready() {
   return 1
 }
 
-echo "1. sbt asyncApiGenerate (empty channel list — should succeed and produce no spec)..."
+echo "1. sbt asyncApiGenerate (two subscriptions)..."
 if sbt asyncApiGenerate; then
   echo "   OK: task succeeded"
 else
   echo "FAIL: asyncApiGenerate should succeed with an empty channel list (via the build.sbt override)" >&2
   FAILED=1
 fi
-if [ -f "target/asyncapi-docs-spec/asyncapi.json" ]; then
-  echo "FAIL: expected no generated spec while there are no channels" >&2
+SPEC_FILE="target/asyncapi-docs-spec/asyncapi.json"
+if [ ! -f "$SPEC_FILE" ]; then
+  echo "FAIL: expected a generated spec with two channels" >&2
+  FAILED=1
+elif ! jq -e '.channels["order-events"] and .channels["fulfilment-events"]' "$SPEC_FILE" >/dev/null; then
+  echo "FAIL: generated spec does not contain both subscriptions" >&2
   FAILED=1
 else
-  echo "   OK: no generated spec"
+  echo "   OK: generated spec contains both subscriptions"
 fi
 
 echo
@@ -69,8 +72,16 @@ wait_ready
 echo "   OK: inventory-service ready on :8080"
 
 echo
-echo "4. Checking the live raw-spec route (/docs/asyncapi.json) has no retired events..."
+echo "4. Checking the live raw-spec route (/docs/asyncapi.json)..."
 SPEC="$(curl -s "${INVENTORY_SERVICE_URL}/docs/asyncapi.json")"
+for expected_event in "OrderCancelled" "DispatchConfirmed"; do
+  if echo "$SPEC" | grep -q "$expected_event"; then
+    echo "   OK: live spec contains \"${expected_event}\""
+  else
+    echo "FAIL: live spec is missing \"${expected_event}\"" >&2
+    FAILED=1
+  fi
+done
 for retired in "StockReserved" "StockReservationFailed"; do
   if echo "$SPEC" | grep -q "$retired"; then
     echo "FAIL: live spec still mentions retired event ${retired}" >&2

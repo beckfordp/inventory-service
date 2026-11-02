@@ -5,14 +5,19 @@ import purekafka.docs.ChannelDirection
 
 class AsyncApiChannelsSuite extends FunSuite {
 
-  test("AsyncApiChannels registers the OrderCancelled subscription (US-9.4)") {
+  test(
+    "AsyncApiChannels registers the OrderCancelled and DispatchConfirmed subscriptions"
+  ) {
     assertEquals(
       AsyncApiChannels.channels.map(c => c.topic -> c.eventType).toSet,
-      Set("order-events" -> "OrderCancelled")
+      Set(
+        "order-events" -> "OrderCancelled",
+        "fulfilment-events" -> "DispatchConfirmed"
+      )
     )
     assertEquals(
       AsyncApiChannels.channels.map(_.direction),
-      List(ChannelDirection.Subscribe: ChannelDirection)
+      List(ChannelDirection.Subscribe, ChannelDirection.Subscribe)
     )
   }
 

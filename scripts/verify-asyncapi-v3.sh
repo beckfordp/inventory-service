@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Verifies asyncapi-v3_20261101 (gluon TD-19.3): with purekafka 0.6.0 the
-# AsyncAPI document is 3.0.0 — empty, since inventory-service has no Kafka
-# events (TD-7.5) — and schemaRegistryCheck still passes against gluon's
-# restored registry. build.sbt disables HTML generation (asyncApiGenerate is
-# overridden), so only the spec is generated and checked here.
+# AsyncAPI document is 3.0.0 and documents its two subscriptions
+# (OrderCancelled, DispatchConfirmed); schemaRegistryCheck still passes
+# against gluon's restored registry. build.sbt disables HTML generation
+# (asyncApiGenerate is overridden), so only the spec is generated and checked
+# here.
 #   scripts/verify-asyncapi-v3.sh   (needs the local k8s Apicurio)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -20,8 +21,11 @@ sbt -batch -Dsbt.supershell=false scalafmtCheck Test/scalafmtCheck test asyncApi
 echo "ok   tests, scalafmt, asyncApiGenerateSpec"
 
 [ "$(jq -r .asyncapi "$SPEC")" = "3.0.0" ] || { echo "FAIL: spec is not 3.0.0"; exit 1; }
-[ "$(jq -c '[.channels, .operations]' "$SPEC")" = "[{},{}]" ] || { echo "FAIL: expected no channels/operations"; exit 1; }
-echo "ok   spec is 3.0.0 with no channels or operations"
+CHANNELS="$(jq -r '[.channels | keys[]] | sort | join(",")' "$SPEC")"
+OPERATIONS="$(jq -r '[.operations | keys[]] | sort | join(",")' "$SPEC")"
+[ "$CHANNELS" = "fulfilment-events,order-events" ] || { echo "FAIL: channels are $CHANNELS"; exit 1; }
+[ "$OPERATIONS" = "fulfilment-events,order-events" ] || { echo "FAIL: operations are $OPERATIONS"; exit 1; }
+echo "ok   spec is 3.0.0 with both subscriptions"
 
 ./scripts/verify-schema-registry-check.sh < /dev/null > target/verify-asyncapi-v3-registry.log 2>&1 \
   || { echo "FAIL: verify-schema-registry-check.sh (see target/verify-asyncapi-v3-registry.log)"; exit 1; }

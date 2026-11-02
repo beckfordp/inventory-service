@@ -125,13 +125,29 @@ object OrderCancelledConsumer {
                         )
                       case Some(orderId) =>
                         deadLetter.guard(topic, key, Some(raw))(
-                          store.releaseOrder(orderId) *>
-                            logger.info(
+                          store.releaseOrder(orderId).flatMap { outcome =>
+                            val flagged =
+                              if (outcome.shipped.nonEmpty)
+                                store
+                                  .flagReconciliation(
+                                    orderId,
+                                    "cancel_after_dispatch"
+                                  )
+                                  .void
+                              else MonadThrow[F].unit
+                            flagged *> logger.info(
                               Map(
                                 "order_id" -> event.orderId,
-                                "reason" -> event.reason.getOrElse("-")
+                                "reason" -> event.reason.getOrElse("-"),
+                                "released_lines" -> outcome.released.size.toString,
+                                "shipped_lines" -> outcome.shipped.size.toString
                               )
-                            )("Reservation released on order cancellation")
+                            )(
+                              if (outcome.shipped.nonEmpty)
+                                "OrderCancelled after dispatch - reconciliation flagged"
+                              else "Reservation released on order cancellation"
+                            )
+                          }
                         )
                     }
                 }
