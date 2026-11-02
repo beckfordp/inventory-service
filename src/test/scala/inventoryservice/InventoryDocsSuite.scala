@@ -135,6 +135,22 @@ class InventoryDocsSuite extends CatsEffectSuite {
         errorStatuses(HealthRoutes.readyServerEndpoint[IO](store)),
         List(503)
       )
+      assertEquals(
+        errorStatuses(
+          ReconciliationRoutes.listServerEndpoint[IO](store, logger)
+        ),
+        List(400)
+      )
+      assertEquals(
+        errorStatuses(
+          ReconciliationRoutes.resolveServerEndpoint[IO](
+            store,
+            OperatorAuth.disabled,
+            logger
+          )
+        ),
+        List(400, 401, 404)
+      )
     }
   }
 

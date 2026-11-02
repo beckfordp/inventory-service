@@ -32,6 +32,15 @@ object Main extends IOApp.Simple {
         )
       )("inventory-service starting")
     )
+    _ <- Resource.eval(
+      if (config.operatorAuth.token.exists(_.trim.nonEmpty))
+        telemetry.logger.warn(
+          Map("operator_auth" -> "enabled")
+        )(
+          "Dev operator token enabled - reconciliation resolve is local/demo only (ADR 0026)"
+        )
+      else IO.unit
+    )
     store <- InventoryStore.postgres[IO](config.postgres, telemetry.meter)
     _ <- KafkaConsumers.resource[IO](
       config.kafka,
@@ -43,7 +52,8 @@ object Main extends IOApp.Simple {
       store,
       telemetry,
       AsyncApiChannels.channels,
-      config.asyncApiHtmlDir
+      config.asyncApiHtmlDir,
+      OperatorAuth.fromConfig(config.operatorAuth)
     )
     _ <- EmberServerBuilder
       .default[IO]

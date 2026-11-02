@@ -46,6 +46,13 @@ curl -X PUT http://localhost:8080/inventorys/<id> \
 # Delete it
 curl -X DELETE http://localhost:8080/inventorys/<id>
 
+# Reconciliation queue (ADM-4); resolve with the dev operator token
+curl "http://localhost:8080/reconciliations?status=open"
+curl -X PATCH http://localhost:8080/reconciliations/<orderId> \
+  -H "Authorization: Bearer dev-operator-token" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"resolved","note":"checked"}'
+
 # Liveness / readiness
 curl http://localhost:8080/health
 curl http://localhost:8080/health/ready

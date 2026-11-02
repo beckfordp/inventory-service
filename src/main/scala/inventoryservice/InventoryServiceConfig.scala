@@ -38,13 +38,19 @@ final case class KafkaConfig(
       StreamSupervisorConfig(baseDelay = 1.second, maxDelay = 30.seconds)
 ) derives ConfigReader
 
+final case class OperatorAuthConfig(
+    token: Option[String],
+    operatorId: String
+) derives ConfigReader
+
 final case class InventoryServiceConfig(
     port: Int,
     metricsPort: Int,
     serviceName: String,
     asyncApiHtmlDir: String,
     postgres: PostgresConfig,
-    kafka: KafkaConfig
+    kafka: KafkaConfig,
+    operatorAuth: OperatorAuthConfig
 ) derives ConfigReader
 
 object InventoryServiceConfig {

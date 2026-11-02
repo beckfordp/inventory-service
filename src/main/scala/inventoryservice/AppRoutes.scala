@@ -1,7 +1,7 @@
 package inventoryservice
 
 import cats.MonadThrow
-import cats.effect.Async
+import cats.effect.{Async, Clock}
 import cats.syntax.semigroupk._
 import org.http4s.HttpRoutes
 import org.http4s.server.staticcontent.{FileService, fileService}
@@ -25,23 +25,33 @@ import sttp.tapir.server.ServerEndpoint
 object AppRoutes {
 
   /** Every endpoint this service serves and documents at `/docs`. */
-  def endpoints[F[_]: MonadThrow](
+  def endpoints[F[_]: MonadThrow: Clock](
       store: InventoryStore[F],
-      logger: StructuredLogger[F]
+      logger: StructuredLogger[F],
+      operatorAuth: OperatorAuth = OperatorAuth.disabled
   ): List[ServerEndpoint[Any, F]] =
     InventoryRoutes.serverEndpoints[F](store, logger) ++
+      List(
+        ReconciliationRoutes.listServerEndpoint[F](store, logger),
+        ReconciliationRoutes.resolveServerEndpoint[F](
+          store,
+          operatorAuth,
+          logger
+        )
+      ) ++
       HealthRoutes.serverEndpoints[F](store)
 
   def all[F[_]: Async](
       store: InventoryStore[F],
       telemetry: Telemetry[F],
       channels: List[AsyncApiChannel[?]],
-      staticAsyncApiDocsDir: String
+      staticAsyncApiDocsDir: String,
+      operatorAuth: OperatorAuth = OperatorAuth.disabled
   ): HttpRoutes[F] = {
     val docsRoutes = Docs.routes[F](
       "Inventory Service",
       "1.0",
-      endpoints[F](store, telemetry.logger)
+      endpoints[F](store, telemetry.logger, operatorAuth)
     )
     val asyncApiRoutes =
       AsyncApiDocs.routes[F]("Inventory Service", "1.0", channels)

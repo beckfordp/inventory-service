@@ -28,6 +28,10 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
       |  }
       |  stream-supervisor { base-delay = 1s, max-delay = 30s }
       |}
+      |operator-auth {
+      |  token = "dev-operator-token"
+      |  operator-id = "dev-operator"
+      |}
       |""".stripMargin
 
   test("loads a fully-specified config") {
@@ -48,7 +52,9 @@ class InventoryServiceConfigSuite extends CatsEffectSuite {
             user = "inventory",
             password = "inventory"
           ),
-          kafka = KafkaConfig(bootstrapServers = "localhost:9092")
+          kafka = KafkaConfig(bootstrapServers = "localhost:9092"),
+          operatorAuth =
+            OperatorAuthConfig(Some("dev-operator-token"), "dev-operator")
         )
       )
     )
