@@ -286,4 +286,29 @@ trait OrderReservationStoreContract { self: CatsEffectSuite =>
         assert(!unknown)
       }
   }
+
+  withStore("release racing ship leaves one consistent ledger outcome") {
+    store =>
+      val a = sku()
+      val cmd = command(line(a, 2))
+      for {
+        _ <- store.seed(a, 5)
+        _ <- store.reserveOrder(cmd)
+        _ <- IO.both(
+          store.releaseOrder(cmd.orderId),
+          store.markShipped(cmd.orderId)
+        )
+        levelsAfter <- levels(store, a)
+        rows <- store.listReservations(Some(cmd.orderId), None)
+      } yield {
+        // Either the release won (stock back, ship no-ops) or the ship won
+        // (stock consumed, release no-ops). Never both available and shipped.
+        assert(
+          levelsAfter == List((5, 0)) || levelsAfter == List((3, 0)),
+          levelsAfter
+        )
+        assertEquals(rows.map(_.status).distinct.size, 1)
+        assert(Set("released", "shipped").contains(rows.head.status))
+      }
+  }
 }
