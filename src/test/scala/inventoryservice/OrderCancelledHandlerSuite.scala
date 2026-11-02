@@ -66,7 +66,8 @@ class OrderCancelledHandlerSuite extends CatsEffectSuite {
     )
     store.reserveOrder(command).flatMap {
       case Right(_) => IO.unit
-      case Left(e)  => IO.raiseError(new IllegalStateException(s"reserve failed: $e"))
+      case Left(e)  =>
+        IO.raiseError(new IllegalStateException(s"reserve failed: $e"))
     }
   }
 
