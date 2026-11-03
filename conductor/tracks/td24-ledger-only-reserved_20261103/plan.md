@@ -10,7 +10,7 @@ validation fails on redeploy.
   - [x] Green: `StockUpdate`/`StockLevels.update`, `UpdateInventoryRequest`, route handler, in-memory + Postgres update SQL.
   - [x] Refactor; coverage.
 - [x] Task: OpenAPI docs state ledger ownership (FR5) — route/schema descriptions, example, 400 text; `verify-rest-docs.sh` still passes. — e51c724 (verify-rest-docs: 86 OK; 1 pre-existing FAIL from ADM-4 — reconciliation `Authorization` header has no example; out of scope)
-- [~] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md) — covered by tests; live checks in Phase 3
 
 ## Phase 2 — Non-negative constraints
 - [ ] Task: V8 CHECK constraints (FR4)
