@@ -19,8 +19,7 @@ extension (store: InventoryStore[IO]) {
 
   def setLevels(
       id: inventoryservice.domain.InventoryId,
-      quantityAvailable: Int,
-      quantityReserved: Int
+      quantityAvailable: Int
   ): IO[Option[Inventory]] =
-    store.update(id, StockUpdate(quantityAvailable, quantityReserved))
+    store.update(id, StockUpdate(quantityAvailable))
 }

@@ -117,7 +117,7 @@ class InventoryStorePostgresSuite
         .use { store =>
           for {
             created <- store.seed(uniqueSku(), 100)
-            updated <- store.setLevels(created.id, 100, 0)
+            updated <- store.setLevels(created.id, 100)
           } yield {
             assertEquals(updated.map(_.id), Some(created.id))
             assert(
@@ -136,7 +136,7 @@ class InventoryStorePostgresSuite
         .postgres[IO](config, Meter.noop[IO])
         .use { store =>
           store
-            .setLevels(InventoryId.fromUuid(UUID.randomUUID()), 100, 0)
+            .setLevels(InventoryId.fromUuid(UUID.randomUUID()), 100)
             .map(assertEquals(_, None))
         }
     }
@@ -302,7 +302,7 @@ class InventoryStorePostgresSuite
             ready <- store.ping
             created <- store.seed(sku, 100)
             read1 <- store.get(created.id)
-            updated <- store.setLevels(created.id, 100, 0)
+            updated <- store.setLevels(created.id, 100)
             read2 <- store.get(created.id)
             deleted <- store.delete(created.id)
             read3 <- store.get(created.id)

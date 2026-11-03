@@ -3,10 +3,10 @@ package inventoryservice.domain
 /** A validated new stock record: built only via `StockLevels.create`. */
 final case class NewStock(sku: String, quantityAvailable: Int)
 
-/** Validated stock levels for a full update: built only via
-  * `StockLevels.update`.
+/** A validated stock update: built only via `StockLevels.update`. Reserved
+  * stock is owned by the reservation ledger, so it is never part of an update.
   */
-final case class StockUpdate(quantityAvailable: Int, quantityReserved: Int)
+final case class StockUpdate(quantityAvailable: Int)
 
 /** Parses CRUD request bodies once at the HTTP boundary: a sku is non-blank,
   * and no quantity is negative.
@@ -36,12 +36,6 @@ object StockLevels {
       qty <- nonNegative(quantityAvailable, "quantityAvailable")
     } yield NewStock(s, qty)
 
-  def update(
-      quantityAvailable: Int,
-      quantityReserved: Int
-  ): Either[InvalidInventory, StockUpdate] =
-    for {
-      available <- nonNegative(quantityAvailable, "quantityAvailable")
-      reserved <- nonNegative(quantityReserved, "quantityReserved")
-    } yield StockUpdate(available, reserved)
+  def update(quantityAvailable: Int): Either[InvalidInventory, StockUpdate] =
+    nonNegative(quantityAvailable, "quantityAvailable").map(StockUpdate(_))
 }

@@ -202,7 +202,6 @@ object InventoryStore {
                   val next =
                     existing.copy(
                       quantityAvailable = levels.quantityAvailable,
-                      quantityReserved = levels.quantityReserved,
                       updatedAt = now
                     )
                   (entities + (id -> next), Some(next))
@@ -437,12 +436,12 @@ object InventoryStore {
     """.query(text *: int4 *: int4 *: timestamptz *: timestamptz)
 
   private val updateInventory: skunk.Query[
-    (Int, Int, UUID),
+    (Int, UUID),
     (String, Int, Int, OffsetDateTime, OffsetDateTime)
   ] =
     sql"""
       UPDATE "inventory"
-      SET quantity_available = $int4, quantity_reserved = $int4, updated_at = now()
+      SET quantity_available = $int4, updated_at = now()
       WHERE id = $uuid
       RETURNING sku, quantity_available, quantity_reserved, created_at, updated_at
     """.query(text *: int4 *: int4 *: timestamptz *: timestamptz)
@@ -829,7 +828,6 @@ object InventoryStore {
                             _.option(
                               (
                                 levels.quantityAvailable,
-                                levels.quantityReserved,
                                 InventoryId.uuid(id)
                               )
                             )

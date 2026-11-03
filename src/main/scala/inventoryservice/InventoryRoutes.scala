@@ -30,16 +30,11 @@ object CreateInventoryRequest {
   implicit val codec: Codec[CreateInventoryRequest] = deriveCodec
 }
 
-@description("A full stock-level update.")
+@description("A stock-level update.")
 final case class UpdateInventoryRequest(
     @description("Units currently available, >= 0.")
     @encodedExample(25)
-    quantityAvailable: Int,
-    @description(
-      "Units held by reservations, >= 0. Admin override: written directly, bypassing the reservation ledger."
-    )
-    @encodedExample(3)
-    quantityReserved: Int
+    quantityAvailable: Int
 )
 
 object UpdateInventoryRequest {
@@ -111,7 +106,7 @@ object InventoryRoutes {
   private val exampleCreate =
     CreateInventoryRequest("watch-rolex-submariner", 25)
 
-  private val exampleUpdate = UpdateInventoryRequest(25, 3)
+  private val exampleUpdate = UpdateInventoryRequest(25)
 
   private val idPath: EndpointInput.PathCapture[InventoryId] =
     path[InventoryId]("id")
@@ -145,7 +140,7 @@ object InventoryRoutes {
       statusCode(StatusCode.BadRequest)
         .and(
           errorBody(
-            "The body failed validation: a blank `sku` (create only) or a negative `quantityAvailable`/`quantityReserved`.",
+            "The body failed validation: a blank `sku` (create only) or a negative `quantityAvailable`.",
             ErrorResponse("quantityAvailable must not be negative")
           )
         )
@@ -225,7 +220,7 @@ object InventoryRoutes {
       .errorOut(updateErrorOutput)
       .summary("Update inventory")
       .description(
-        "Sets both quantities; every field is required. Idempotent. Admin override: writes `quantityReserved` directly and does not touch the `order_reservations` ledger, so it can drift from the active lines (a later release may then drive it negative). Body is checked first (400), then existence (404)."
+        "Sets `quantityAvailable`. Idempotent. Body is checked first (400), then existence (404)."
       )
       .tag("inventorys")
 
@@ -242,7 +237,7 @@ object InventoryRoutes {
       .errorOut(updateErrorOutput)
       .summary("Update inventory (replace)")
       .description(
-        "Same as PATCH — both fields required, same admin-override caveat; kept for PUT clients."
+        "Same as PATCH; kept for PUT clients."
       )
       .tag("inventorys")
 
@@ -369,10 +364,7 @@ object InventoryRoutes {
           "inventory_id" -> renderedId
         )
       )("Received request")
-      result <- StockLevels.update(
-        req.quantityAvailable,
-        req.quantityReserved
-      ) match {
+      result <- StockLevels.update(req.quantityAvailable) match {
         case Left(invalid) =>
           logger
             .warn(

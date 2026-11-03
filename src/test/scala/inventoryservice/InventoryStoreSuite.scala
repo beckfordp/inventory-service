@@ -47,7 +47,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
     for {
       store <- InventoryStore.inMemory[IO]
       created <- store.seed("sku-widget-1", 100)
-      updated <- store.setLevels(created.id, 100, 0)
+      updated <- store.setLevels(created.id, 100)
     } yield {
       assertEquals(updated.map(_.id), Some(created.id))
       assert(
@@ -60,7 +60,7 @@ class InventoryStoreSuite extends CatsEffectSuite {
   test("update returns None for an unknown id") {
     for {
       store <- InventoryStore.inMemory[IO]
-      result <- store.setLevels(unknownInventoryId, 100, 0)
+      result <- store.setLevels(unknownInventoryId, 100)
     } yield assertEquals(result, None)
   }
 

@@ -254,7 +254,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       created <- postResponse.as[InventoryResponse]
       patchResponse <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/inventorys" / created.id)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       updated <- patchResponse.as[InventoryResponse]
     } yield {
@@ -271,7 +271,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/inventorys" / unknownInventoryId)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -299,7 +299,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       _ <- testLogger.logged // drain POST's own log lines before the PATCH
       patchResponse <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/inventorys" / created.id)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       logged <- testLogger.logged
     } yield {
@@ -330,7 +330,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       routes = InventoryRoutes.routes[IO](store, testLogger)
       response <- routes.orNotFound.run(
         Request[IO](Method.PATCH, uri"/inventorys" / unknownInventoryId)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       logged <- testLogger.logged
     } yield {
@@ -462,7 +462,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       created <- postResponse.as[InventoryResponse]
       putResponse <- routes.orNotFound.run(
         Request[IO](Method.PUT, uri"/inventorys" / created.id)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       replaced <- putResponse.as[InventoryResponse]
     } yield {
@@ -479,7 +479,7 @@ class InventoryRoutesSuite extends CatsEffectSuite {
       routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
       response <- routes.orNotFound.run(
         Request[IO](Method.PUT, uri"/inventorys" / unknownInventoryId)
-          .withEntity(UpdateInventoryRequest(100, 0))
+          .withEntity(UpdateInventoryRequest(100))
       )
       body <- response.as[io.circe.Json]
     } yield {
@@ -704,14 +704,36 @@ class InventoryRoutesSuite extends CatsEffectSuite {
         routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
         response <- routes.orNotFound.run(
           Request[IO](method, uri"/inventorys" / InventoryId.render(created.id))
-            .withEntity(UpdateInventoryRequest(5, -1))
+            .withEntity(UpdateInventoryRequest(-1))
         )
         error <- errorOf(response)
         after <- store.get(created.id)
       } yield {
         assertEquals(response.status, Status.BadRequest)
-        assertEquals(error, "quantityReserved must not be negative")
+        assertEquals(error, "quantityAvailable must not be negative")
         assertEquals(after, Some(created))
+      }
+    }
+
+    test(s"$method /inventorys/{id} ignores a sent quantityReserved") {
+      for {
+        store <- InventoryStore.inMemory[IO]
+        created <- store.seed("sku-widget-1", 10)
+        routes = InventoryRoutes.routes[IO](store, NoOpLogger[IO])
+        response <- routes.orNotFound.run(
+          Request[IO](method, uri"/inventorys" / InventoryId.render(created.id))
+            .withEntity(
+              io.circe.Json.obj(
+                "quantityAvailable" -> io.circe.Json.fromInt(7),
+                "quantityReserved" -> io.circe.Json.fromInt(99)
+              )
+            )
+        )
+        updated <- response.as[InventoryResponse]
+      } yield {
+        assertEquals(response.status, Status.Ok)
+        assertEquals(updated.quantityAvailable, 7)
+        assertEquals(updated.quantityReserved, 0)
       }
     }
   }

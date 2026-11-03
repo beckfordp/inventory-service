@@ -25,21 +25,14 @@ class StockLevelsSuite extends FunSuite {
     )
   }
 
-  test("update accepts non-negative quantities") {
-    assertEquals(StockLevels.update(5, 2), Right(StockUpdate(5, 2)))
+  test("update accepts a non-negative quantityAvailable") {
+    assertEquals(StockLevels.update(5), Right(StockUpdate(5)))
   }
 
   test("update rejects a negative quantityAvailable") {
     assertEquals(
-      StockLevels.update(-1, 0),
+      StockLevels.update(-1),
       Left(InvalidInventory("quantityAvailable must not be negative"))
-    )
-  }
-
-  test("update rejects a negative quantityReserved") {
-    assertEquals(
-      StockLevels.update(0, -1),
-      Left(InvalidInventory("quantityReserved must not be negative"))
     )
   }
 
