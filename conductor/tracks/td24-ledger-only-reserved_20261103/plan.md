@@ -21,5 +21,5 @@ validation fails on redeploy.
 ## Phase 3 — Live verification
 - [x] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged. — 06bfd94 (also fixed stale J7 released-error expectation; 36 OK)
 - [x] Task: Full suite + coverage + scalafmtCheck; deploy (`bin/k8s-local-up inventory-service`, cluster already reset); run `verify-order-reservations.sh`, `verify-rest-docs.sh`, `bin/seed-demo-data`, `bin/verify-admin-demo`; drift SQL → 0 rows. — no code change (176/176, 84.2%/86.3%, scalafmt clean; deployed, Flyway accepted V8; seed + admin demo PASS; drift 0 rows, reserved 2 = active 2; live PATCH {quantityReserved:99} left reserved 1)
-- [~] Task: gluon `specs/inventory.yaml` comment (FR6) — committed in gluon.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3 — Live verification' (Protocol in workflow.md)
+- [x] Task: gluon `specs/inventory.yaml` comment (FR6) — committed in gluon. — gluon e89a77c
+- [~] Task: Conductor - User Manual Verification 'Phase 3 — Live verification' (Protocol in workflow.md)
