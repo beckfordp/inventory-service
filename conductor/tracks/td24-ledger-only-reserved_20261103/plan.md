@@ -16,7 +16,7 @@ validation fails on redeploy.
 - [x] Task: V8 CHECK constraints (FR4) — b93f38c
   - [x] Red: `MigrationsSuite` — inserting negative available or reserved fails; zero succeeds. Confirm failure.
   - [x] Green: `V8__inventory_quantities_nonnegative.sql`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md) — covered by MigrationsSuite; live in Phase 3
 
 ## Phase 3 — Live verification
 - [ ] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged.
