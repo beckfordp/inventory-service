@@ -12,14 +12,14 @@ validation fails on redeploy.
 - [x] Task: OpenAPI docs state ledger ownership (FR5) — route/schema descriptions, example, 400 text; `verify-rest-docs.sh` still passes. — e51c724 (verify-rest-docs: 86 OK; 1 pre-existing FAIL from ADM-4 — reconciliation `Authorization` header has no example; out of scope)
 - [x] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md) — covered by tests; live checks in Phase 3
 
-## Phase 2 — Non-negative constraints
+## Phase 2 — Non-negative constraints [checkpoint: cd56f46]
 - [x] Task: V8 CHECK constraints (FR4) — b93f38c
   - [x] Red: `MigrationsSuite` — inserting negative available or reserved fails; zero succeeds. Confirm failure.
   - [x] Green: `V8__inventory_quantities_nonnegative.sql`.
 - [x] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md) — covered by MigrationsSuite; live in Phase 3
 
 ## Phase 3 — Live verification
-- [ ] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged.
+- [~] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged.
 - [ ] Task: Full suite + coverage + scalafmtCheck; deploy (`bin/k8s-local-up inventory-service`, cluster already reset); run `verify-order-reservations.sh`, `verify-rest-docs.sh`, `bin/seed-demo-data`, `bin/verify-admin-demo`; drift SQL → 0 rows.
 - [ ] Task: gluon `specs/inventory.yaml` comment (FR6) — committed in gluon.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3 — Live verification' (Protocol in workflow.md)
