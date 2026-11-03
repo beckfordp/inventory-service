@@ -4,6 +4,9 @@ This file tracks all major tracks for the project.
 
 ---
 
+- [ ] **Track: TD-24 — make quantityReserved ledger-only and non-negative**
+  *Link: [./tracks/td24-ledger-only-reserved_20261103/](./tracks/td24-ledger-only-reserved_20261103/)*
+
 ## Backlog
 
 Title-only placeholders for future tracks — not yet detailed (no spec/plan, no linked

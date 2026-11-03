@@ -1,0 +1,8 @@
+{
+  "track_id": "td24-ledger-only-reserved_20261103",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-11-03T09:00:00Z",
+  "updated_at": "2026-11-03T09:00:00Z",
+  "description": "TD-24 — make quantityReserved ledger-only and non-negative (see gluon/TECHNICAL_DEBT.md TD-24 findings)"
+}
