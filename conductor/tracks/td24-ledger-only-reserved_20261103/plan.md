@@ -23,3 +23,6 @@ validation fails on redeploy.
 - [x] Task: Full suite + coverage + scalafmtCheck; deploy (`bin/k8s-local-up inventory-service`, cluster already reset); run `verify-order-reservations.sh`, `verify-rest-docs.sh`, `bin/seed-demo-data`, `bin/verify-admin-demo`; drift SQL → 0 rows. — no code change (176/176, 84.2%/86.3%, scalafmt clean; deployed, Flyway accepted V8; seed + admin demo PASS; drift 0 rows, reserved 2 = active 2; live PATCH {quantityReserved:99} left reserved 1)
 - [x] Task: gluon `specs/inventory.yaml` comment (FR6) — committed in gluon. — gluon e89a77c
 - [x] Task: Conductor - User Manual Verification 'Phase 3 — Live verification' (Protocol in workflow.md) — scripted live checks above
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 131e46d
