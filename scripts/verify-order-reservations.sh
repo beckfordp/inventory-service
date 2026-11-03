@@ -7,7 +7,8 @@ set -euo pipefail
 # all-or-nothing and reports every failed line, a repeated reserve is
 # idempotent, the ledger records each line, and release restores stock exactly
 # once and is safe to repeat. Step 10 covers the TD-16.2 review fixes
-# (duplicate sku 409, negative quantities 400, Int-overflowing demand 409).
+# (duplicate sku 409, negative quantities 400, Int-overflowing demand 409) and
+# TD-24 (a sent quantityReserved is ignored by PATCH).
 #
 # Usage: ./scripts/verify-order-reservations.sh
 
@@ -136,7 +137,7 @@ check "repeat" "204" "$(post "/inventorys/order-reservations/$ORDER/release" | t
 check "A still" "5/0" "$(levels "$A")"
 replay="$(post /inventorys/order-reservations "$body")"
 check "reserve after release returns 409" "409" "$(echo "$replay" | tail -1)"
-check "released error" "Order reservation already released" "$(echo "$replay" | sed '$d' | json "d['error']")"
+check "released error" "Order reservation already released or shipped" "$(echo "$replay" | sed '$d' | json "d['error']")"
 check "A still after replay" "5/0" "$(levels "$A")"
 check "unknown" "204" "$(post "/inventorys/order-reservations/$(uuid)/release" | tail -1)"
 check "non-UUID" "204" "$(post /inventorys/order-reservations/nope/release | tail -1)"
@@ -152,7 +153,9 @@ check "duplicate sku returns 409" "409" "$(post /inventorys "$stock_a" | tail -1
 negative="$(stock "verify-neg-$(date +%s)" -1)"
 check "negative quantityAvailable returns 400" "400" "$(post /inventorys "$negative" | tail -1)"
 A_ID="$(curl -s "$BASE/inventorys?sku=$A" | json "d[0]['id']")"
-check "PATCH negative quantityReserved returns 400" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/inventorys/$A_ID" -H "Content-Type: application/json" -d '{"quantityAvailable":5,"quantityReserved":-1}')"
+check "PATCH negative quantityAvailable returns 400" "400" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/inventorys/$A_ID" -H "Content-Type: application/json" -d '{"quantityAvailable":-1}')"
+check "PATCH ignores a sent quantityReserved (TD-24)" "200" "$(curl -s -o /dev/null -w '%{http_code}' -X PATCH "$BASE/inventorys/$A_ID" -H "Content-Type: application/json" -d '{"quantityAvailable":5,"quantityReserved":99}')"
+check "A reserved unchanged by PATCH" "5/0" "$(levels "$A")"
 huge="$(order "$(uuid)" "$(item "$(uuid)" "$A" 2147483647),$(item "$(uuid)" "$A" 2147483647)")"
 check "Int-overflowing demand returns 409" "409" "$(post /inventorys/order-reservations "$huge" | tail -1)"
 check "A untouched by overflow" "5/0" "$(levels "$A")"
