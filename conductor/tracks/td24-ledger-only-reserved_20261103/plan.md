@@ -4,7 +4,7 @@ Note: the local cluster already has V8 applied (from a pre-track build, now stas
 must keep the name `V8__inventory_quantities_nonnegative.sql` and identical content, or Flyway
 validation fails on redeploy.
 
-## Phase 1 — Ledger-only stock update
+## Phase 1 — Ledger-only stock update [checkpoint: e0b4cc7]
 - [x] Task: Update takes `quantityAvailable` only (FR1–FR3) — 4c9a6aa
   - [x] Red: `StockLevelsSuite` (update(avail) only; negative → InvalidInventory); `InventoryRoutesSuite` PATCH/PUT ignore a sent `quantityReserved` (200, reserved unchanged) and negative available → 400; adjust `TestStores.setLevels`, store suites, existing `UpdateInventoryRequest(100, 0)` callers. Confirm failure.
   - [x] Green: `StockUpdate`/`StockLevels.update`, `UpdateInventoryRequest`, route handler, in-memory + Postgres update SQL.
@@ -13,7 +13,7 @@ validation fails on redeploy.
 - [x] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md) — covered by tests; live checks in Phase 3
 
 ## Phase 2 — Non-negative constraints
-- [ ] Task: V8 CHECK constraints (FR4)
+- [~] Task: V8 CHECK constraints (FR4)
   - [ ] Red: `MigrationsSuite` — inserting negative available or reserved fails; zero succeeds. Confirm failure.
   - [ ] Green: `V8__inventory_quantities_nonnegative.sql`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md)
