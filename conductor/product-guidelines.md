@@ -15,8 +15,8 @@ restate those — keep following them as the service grows.
 - REST paths pluralized (`/inventorys`, `/inventorys/{id}`) even though the
   DB/table name is singular (`inventory`)
 - PATCH = partial update; PUT = idempotent full-replace (same client-writable
-  fields as PATCH — currently `quantityAvailable`/`quantityReserved`, no
-  other fields are client-writable post-creation)
+  fields as PATCH — only `quantityAvailable`; `quantityReserved` is
+  ledger-only, changed by reserve/release/ship (TD-24))
 - One dedicated Postgres database per service (`inventory`), named after the
   domain — never read/write another service's database directly;
   cross-service references (e.g. SKU vs. catalog-service) are logical only,
