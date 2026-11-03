@@ -30,7 +30,9 @@ object CreateInventoryRequest {
   implicit val codec: Codec[CreateInventoryRequest] = deriveCodec
 }
 
-@description("A stock-level update.")
+@description(
+  "A stock update. `quantityReserved` is owned by the reservation ledger; a sent value is ignored."
+)
 final case class UpdateInventoryRequest(
     @description("Units currently available, >= 0.")
     @encodedExample(25)
@@ -220,7 +222,7 @@ object InventoryRoutes {
       .errorOut(updateErrorOutput)
       .summary("Update inventory")
       .description(
-        "Sets `quantityAvailable`. Idempotent. Body is checked first (400), then existence (404)."
+        "Sets `quantityAvailable`. Idempotent. `quantityReserved` is changed only by reserve, release and ship on the `order_reservations` ledger; a sent value is ignored. Body is checked first (400), then existence (404)."
       )
       .tag("inventorys")
 
@@ -237,7 +239,7 @@ object InventoryRoutes {
       .errorOut(updateErrorOutput)
       .summary("Update inventory (replace)")
       .description(
-        "Same as PATCH; kept for PUT clients."
+        "Same as PATCH — sets `quantityAvailable` only; kept for PUT clients."
       )
       .tag("inventorys")
 

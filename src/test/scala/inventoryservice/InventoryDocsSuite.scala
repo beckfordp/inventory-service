@@ -165,4 +165,29 @@ class InventoryDocsSuite extends CatsEffectSuite {
       )
     }
   }
+
+  test("the stock update documents quantityReserved as ledger-owned") {
+    for {
+      store <- InventoryStore.inMemory[IO]
+      routes = Docs.routes[IO](
+        "Inventory Service",
+        "1.0",
+        InventoryRoutes.serverEndpoints[IO](store, NoOpLogger[IO])
+      )
+      docsBody <- routes.orNotFound
+        .run(Request[IO](Method.GET, uri"/docs/docs.yaml"))
+        .flatMap(_.bodyText.compile.string)
+    } yield {
+      val updateSchema = docsBody
+        .split("\n    UpdateInventoryRequest:\n", 2)
+        .lift(1)
+        .map(_.split("\n    [A-Z]", 2).head)
+        .getOrElse(fail(s"no UpdateInventoryRequest schema in: $docsBody"))
+      // YAML folds long descriptions across lines.
+      def flat(text: String) = text.replaceAll("\\s+", " ")
+      assert(!clue(updateSchema).contains("quantityReserved:"))
+      assert(flat(updateSchema).contains("owned by the reservation ledger"))
+      assert(flat(docsBody).contains("a sent value is ignored"))
+    }
+  }
 }
