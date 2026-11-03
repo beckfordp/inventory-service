@@ -23,7 +23,11 @@ object Main extends IOApp.Simple {
       )
     )
     _ <- Resource.eval(Migrations.run[IO](config.postgres))
-    telemetry <- Telemetry.resource[IO](config.serviceName, config.metricsPort)
+    telemetry <- Telemetry.resource[IO](
+      config.serviceName,
+      config.metricsPort,
+      Some(runtime.metrics)
+    )
     _ <- Resource.eval(
       telemetry.logger.info(
         Map(
@@ -41,7 +45,15 @@ object Main extends IOApp.Simple {
         )
       else IO.unit
     )
-    store <- InventoryStore.postgres[IO](config.postgres, telemetry.meter)
+    store <- InventoryStore
+      .postgres[IO](config.postgres, telemetry.meter)
+      .evalMap(
+        InventoryJourneyMetrics.instrument[IO](
+          _,
+          telemetry.meter,
+          telemetry.logger
+        )
+      )
     _ <- KafkaConsumers.resource[IO](
       config.kafka,
       store,
