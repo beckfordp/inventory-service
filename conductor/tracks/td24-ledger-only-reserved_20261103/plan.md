@@ -5,11 +5,11 @@ must keep the name `V8__inventory_quantities_nonnegative.sql` and identical cont
 validation fails on redeploy.
 
 ## Phase 1 — Ledger-only stock update
-- [ ] Task: Update takes `quantityAvailable` only (FR1–FR3)
-  - [ ] Red: `StockLevelsSuite` (update(avail) only; negative → InvalidInventory); `InventoryRoutesSuite` PATCH/PUT ignore a sent `quantityReserved` (200, reserved unchanged) and negative available → 400; adjust `TestStores.setLevels`, store suites, existing `UpdateInventoryRequest(100, 0)` callers. Confirm failure.
-  - [ ] Green: `StockUpdate`/`StockLevels.update`, `UpdateInventoryRequest`, route handler, in-memory + Postgres update SQL.
-  - [ ] Refactor; coverage.
-- [ ] Task: OpenAPI docs state ledger ownership (FR5) — route/schema descriptions, example, 400 text; `verify-rest-docs.sh` still passes.
+- [x] Task: Update takes `quantityAvailable` only (FR1–FR3) — 4c9a6aa
+  - [x] Red: `StockLevelsSuite` (update(avail) only; negative → InvalidInventory); `InventoryRoutesSuite` PATCH/PUT ignore a sent `quantityReserved` (200, reserved unchanged) and negative available → 400; adjust `TestStores.setLevels`, store suites, existing `UpdateInventoryRequest(100, 0)` callers. Confirm failure.
+  - [x] Green: `StockUpdate`/`StockLevels.update`, `UpdateInventoryRequest`, route handler, in-memory + Postgres update SQL.
+  - [x] Refactor; coverage.
+- [~] Task: OpenAPI docs state ledger ownership (FR5) — route/schema descriptions, example, 400 text; `verify-rest-docs.sh` still passes.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md)
 
 ## Phase 2 — Non-negative constraints
