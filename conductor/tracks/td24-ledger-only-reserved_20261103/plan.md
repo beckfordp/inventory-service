@@ -19,7 +19,7 @@ validation fails on redeploy.
 - [x] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md) — covered by MigrationsSuite; live in Phase 3
 
 ## Phase 3 — Live verification
-- [~] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged.
-- [ ] Task: Full suite + coverage + scalafmtCheck; deploy (`bin/k8s-local-up inventory-service`, cluster already reset); run `verify-order-reservations.sh`, `verify-rest-docs.sh`, `bin/seed-demo-data`, `bin/verify-admin-demo`; drift SQL → 0 rows.
+- [x] Task: `verify-order-reservations.sh` step 10 — negative available → 400; sent reserved ignored, levels unchanged. — 06bfd94 (also fixed stale J7 released-error expectation; 36 OK)
+- [~] Task: Full suite + coverage + scalafmtCheck; deploy (`bin/k8s-local-up inventory-service`, cluster already reset); run `verify-order-reservations.sh`, `verify-rest-docs.sh`, `bin/seed-demo-data`, `bin/verify-admin-demo`; drift SQL → 0 rows.
 - [ ] Task: gluon `specs/inventory.yaml` comment (FR6) — committed in gluon.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3 — Live verification' (Protocol in workflow.md)
