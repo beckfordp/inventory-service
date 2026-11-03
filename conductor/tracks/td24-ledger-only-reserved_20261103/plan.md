@@ -13,9 +13,9 @@ validation fails on redeploy.
 - [x] Task: Conductor - User Manual Verification 'Phase 1 — Ledger-only stock update' (Protocol in workflow.md) — covered by tests; live checks in Phase 3
 
 ## Phase 2 — Non-negative constraints
-- [~] Task: V8 CHECK constraints (FR4)
-  - [ ] Red: `MigrationsSuite` — inserting negative available or reserved fails; zero succeeds. Confirm failure.
-  - [ ] Green: `V8__inventory_quantities_nonnegative.sql`.
+- [x] Task: V8 CHECK constraints (FR4) — b93f38c
+  - [x] Red: `MigrationsSuite` — inserting negative available or reserved fails; zero succeeds. Confirm failure.
+  - [x] Green: `V8__inventory_quantities_nonnegative.sql`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2 — Non-negative constraints' (Protocol in workflow.md)
 
 ## Phase 3 — Live verification
