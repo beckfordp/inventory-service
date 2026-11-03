@@ -21,12 +21,12 @@ field-spec applied from `gluon/specs/inventory.yaml`, then hand-extended per
 ## Domain model
 - **Inventory** (generated) — `sku` (create-only), `quantityAvailable`
   (Int), `quantityReserved` (Int; server-defaulted to `0` at creation).
-  Flag: "server-defaulted" only constrains the *create* endpoint — codegen
-  v1 has no way to make a field server-set-once-then-read-only, so
-  `quantityReserved` is still a plain client-writable field on `PATCH`/`PUT`
-  (`UpdateInventoryRequest` takes both `quantityAvailable` and
-  `quantityReserved`), same as `quantityAvailable`. Worth hardening later
-  (same class of gap as order-service's `status`-as-String flag).
+  `quantityReserved` is ledger-only (TD-24, 2026-11-03): `PATCH`/`PUT` take
+  `{quantityAvailable}` and ignore a sent `quantityReserved`; it changes only
+  via reserve/release/ship on the `order_reservations` ledger. V8 enforces
+  `quantity_available >= 0` and `quantity_reserved >= 0`. Hand-edited past
+  the generator, which has no ledger-only visibility (noted in
+  `gluon/specs/inventory.yaml`).
 - Bulk order reservations (TD-7.1/7.2, ADR 0018, 2026-10-27):
   `POST /inventorys/order-reservations` reserves every line of an order
   all-or-nothing in one transaction (skus locked in sorted order, per-sku
