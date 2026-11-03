@@ -218,4 +218,37 @@ class MigrationsSuite extends CatsEffectSuite with TestContainerForAll {
       }
     }
   }
+
+  test("migrations reject negative inventory quantities") {
+    withContainers { postgres =>
+      val config = PostgresConfig(
+        host = postgres.host,
+        port = postgres.mappedPort(5432),
+        database = postgres.databaseName,
+        user = postgres.username,
+        password = postgres.password
+      )
+
+      Migrations.run[IO](config).map { _ =>
+        val conn = DriverManager.getConnection(
+          postgres.jdbcUrl,
+          postgres.username,
+          postgres.password
+        )
+        try {
+          def insert(available: Int, reserved: Int) =
+            scala.util.Try(
+              conn
+                .createStatement()
+                .execute(
+                  s"insert into inventory (id, sku, quantity_available, quantity_reserved) values (gen_random_uuid(), gen_random_uuid()::text, $available, $reserved)"
+                )
+            )
+          assert(insert(0, -1).isFailure, "reserved check constraint missing")
+          assert(insert(-1, 0).isFailure, "available check constraint missing")
+          assert(insert(0, 0).isSuccess, "zero quantities must be allowed")
+        } finally conn.close()
+      }
+    }
+  }
 }
