@@ -1,6 +1,6 @@
 package inventoryservice
 
-import cats.effect.Sync
+import cats.Monad
 import cats.syntax.all._
 import inventoryservice.domain._
 import org.typelevel.log4cats.StructuredLogger
@@ -31,7 +31,7 @@ object InventoryJourneyMetrics {
       case Left(ReservationReleased(_)) => "already_released"
     }
 
-  def instrument[F[_]: Sync](
+  def instrument[F[_]: Monad](
       store: InventoryStore[F],
       meter: Meter[F],
       logger: StructuredLogger[F]
