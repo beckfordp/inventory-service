@@ -5,9 +5,6 @@ This file tracks all major tracks for the project.
 
 ---
 
-- [ ] **Track: PERF-5.9 — business spans**
-  *Link: [./tracks/business-spans_20261105/](./tracks/business-spans_20261105/)*
-
 ## Backlog
 
 Title-only placeholders for future tracks — not yet detailed (no spec/plan, no linked
