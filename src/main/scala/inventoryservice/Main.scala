@@ -58,7 +58,8 @@ object Main extends IOApp.Simple {
       config.kafka,
       store,
       telemetry.logger,
-      telemetry.meter
+      telemetry.meter,
+      telemetry.tracer
     )
     routes = AppRoutes.all[IO](
       store,

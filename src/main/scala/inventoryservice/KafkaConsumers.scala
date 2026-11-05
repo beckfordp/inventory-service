@@ -7,6 +7,7 @@ import fs2.Stream
 import fs2.kafka.ProducerSettings
 import org.typelevel.log4cats.StructuredLogger
 import org.typelevel.otel4s.metrics.Meter
+import org.typelevel.otel4s.trace.Tracer
 import purekafka.consumer.{DeadLetter, EventAge, StreamSupervisor}
 
 /** Supervises inventory-service's first consumer, `order-events`
@@ -19,7 +20,8 @@ object KafkaConsumers {
       config: KafkaConfig,
       store: InventoryStore[F],
       logger: StructuredLogger[F],
-      meter: Meter[F]
+      meter: Meter[F],
+      tracer: Tracer[F]
   ): Stream[F, Unit] = {
     def dlqProducerSettings: ProducerSettings[F, String, Option[String]] =
       ProducerSettings[F, String, Option[String]]
@@ -46,13 +48,8 @@ object KafkaConsumers {
           logger
         )(meter)(
           Async[F].pure(
-            OrderCancelledConsumer.run[F](
-              config,
-              store,
-              logger,
-              orderDeadLetter,
-              eventAge
-            )
+            OrderCancelledConsumer
+              .run[F](config, store, logger, orderDeadLetter, eventAge, tracer)
           )
         )
         .merge(
@@ -65,7 +62,8 @@ object KafkaConsumers {
                 store,
                 logger,
                 fulfilmentDeadLetter,
-                eventAge
+                eventAge,
+                tracer
               )
             )
           )
@@ -78,7 +76,14 @@ object KafkaConsumers {
       config: KafkaConfig,
       store: InventoryStore[F],
       logger: StructuredLogger[F],
-      meter: Meter[F]
+      meter: Meter[F],
+      tracer: Tracer[F]
   ): Resource[F, Unit] =
-    supervised[F](config, store, logger, meter).compile.drain.background.void
+    supervised[F](
+      config,
+      store,
+      logger,
+      meter,
+      tracer
+    ).compile.drain.background.void
 }
