@@ -41,7 +41,7 @@ object InventoryJourneyMetrics {
       meter.counter[Long]("inventory.reservation.lines").create
     ).mapN { (outcomes, lines) =>
       def milestone(name: String, orderId: UUID): F[Unit] =
-        Milestones.log(logger)(name, orderId.toString, None)
+        Milestones.log(logger)(name, orderId.toString)
 
       new InventoryStore[F] {
         export store.{reserveOrder => _, releaseOrder => _, markShipped => _, *}
