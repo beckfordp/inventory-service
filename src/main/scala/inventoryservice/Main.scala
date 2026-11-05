@@ -54,6 +54,7 @@ object Main extends IOApp.Simple {
           telemetry.logger
         )
       )
+      .map(InventoryStoreTracing.instrument[IO](_, telemetry.tracer))
     _ <- KafkaConsumers.resource[IO](
       config.kafka,
       store,
