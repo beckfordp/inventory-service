@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Live verification for Checkout Journey 7's shipped ledger guard (US-21.4).
 #
 # Starts throwaway Postgres and Kafka plus inventory-service, then proves:

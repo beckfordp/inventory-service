@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- US-21.4: a dispatched order consumes its reservation; it is neither active
 -- (releasable) nor released (stock returned).
 ALTER TABLE "order_reservations"

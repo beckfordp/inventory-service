@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Transactional outbox (ADR 0008, TD-3.3). aggregate_id holds orderItemId
 -- (not sku) to match system-design.md's documented inventory-events
 -- partition key -- correcting a pre-existing drift in StockEventPublisher,

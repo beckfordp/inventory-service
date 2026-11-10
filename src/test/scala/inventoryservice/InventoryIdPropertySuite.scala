@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package inventoryservice
 
 import munit.ScalaCheckSuite

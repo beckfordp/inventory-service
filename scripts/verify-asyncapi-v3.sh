@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Verifies asyncapi-v3_20261101 (gluon TD-19.3): with purekafka 0.6.0 the
 # AsyncAPI document is 3.0.0 and documents its two subscriptions
 # (OrderCancelled, DispatchConfirmed); schemaRegistryCheck still passes

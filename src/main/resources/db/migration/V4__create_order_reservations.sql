@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- Reservation ledger (TD-7.1, ADR 0018): one row per reserved order line, so
 -- POST /inventorys/order-reservations/{orderId}/release can return exactly
 -- what an order holds. inventory.quantity_reserved stays the aggregate.

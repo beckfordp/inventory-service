@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Verifies inventory-service's schemaRegistryCheck against the real local Apicurio

@@ -1,3 +1,4 @@
+-- SPDX-License-Identifier: MIT
 -- TD-24: stock counts can never go negative. quantity_reserved is changed only
 -- by the reservation ledger (reserve/release/ship); a release that would drive
 -- it below 0 now fails instead of silently drifting.

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Verifies inventory-service's AsyncAPI surface after US-21.4 added the

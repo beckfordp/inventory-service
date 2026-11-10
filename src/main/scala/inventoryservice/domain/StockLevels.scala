@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package inventoryservice.domain
 
 /** A validated new stock record: built only via `StockLevels.create`. */

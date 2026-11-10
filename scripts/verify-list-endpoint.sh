@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+
 set -euo pipefail
 
 # Verifies the GET /inventorys list/filter-by-sku endpoint, added for

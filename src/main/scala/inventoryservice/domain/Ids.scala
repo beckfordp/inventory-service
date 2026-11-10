@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package inventoryservice.domain
 
 import sttp.tapir.{Codec, CodecFormat, DecodeResult, Schema}

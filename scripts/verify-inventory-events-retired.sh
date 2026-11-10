@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
 # Live verification for TD-22: inventory-service publishes no events, so its
 # outbox table, Debezium connector, cleanup CronJob and `inventory-events`
 # topic are gone. Also confirms the retired registry/AsyncAPI names stay

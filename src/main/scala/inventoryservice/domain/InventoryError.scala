@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 package inventoryservice.domain
 
 /** Typed failures of the inventory CRUD endpoints, mapped to HTTP statuses at
